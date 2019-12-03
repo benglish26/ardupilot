@@ -21,6 +21,7 @@ MAV_MODE GCS_MAVLINK_Plane::base_mode() const
     // ArduPlane documentation
     switch (plane.control_mode->mode_number()) {
     case Mode::Number::MANUAL:
+    case Mode::Number::BTOL:
     case Mode::Number::TRAINING:
     case Mode::Number::ACRO:
     case Mode::Number::QACRO:

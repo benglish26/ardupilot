@@ -53,7 +53,8 @@ void GCS_Plane::update_vehicle_sensor_status_flags(void)
     case Mode::Number::QACRO:
         rate_controlled = true;
         break;
-
+    case Mode::Number::BTOL:
+        break;
     case Mode::Number::STABILIZE:
     case Mode::Number::FLY_BY_WIRE_A:
     case Mode::Number::AUTOTUNE:
