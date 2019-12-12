@@ -128,7 +128,9 @@ void Plane::setup()
     rssi.init();
 
     init_ardupilot();
+#if BTOL_ENABLED == ENABLED
     initialize_btol();
+#endif
 
     // initialise the main loop scheduler
     scheduler.init(&scheduler_tasks[0], ARRAY_SIZE(scheduler_tasks), MASK_LOG_PM);

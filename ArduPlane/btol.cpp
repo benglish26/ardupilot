@@ -1,8 +1,12 @@
 #include "Plane.h"
+#include "config.h"
+#if BTOL_ENABLED == ENABLED
 #include "btol.h"
 #include <utility>
-#if BTOL_ENABLED == ENABLED
-//extern const AP_HAL::HAL& hal;
+#include <AP_HAL/AP_HAL.h>
+#include <AP_Logger/AP_Logger.h>
+extern const AP_HAL::HAL& hal;
+
 
 /*  //already in Plane.h
 #include <AP_HAL/AP_HAL.h>
@@ -34,6 +38,43 @@ static float rcCommandInputPitchStickAft = 0;
 static float rcCommandInputRollStickRight = 0;
 static float rcCommandInputYawStickRight = 0;
 static float rcCommandInputThrottleStickForward = 0;
+
+const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
+	// @Param: TCONST
+	// @DisplayName: Roll Time Constant
+	// @Description: Time constant in seconds from demanded to achieved roll angle. Most models respond well to 0.5. May be reduced for faster responses, but setting lower than a model can achieve will not help.
+	// @Range: 0.4 1.0
+	// @Units: s
+	// @Increment: 0.1
+	// @User: Advanced
+	AP_GROUPINFO("TST1",      0, BTOL_Controller, testValue1,       0.5f),
+
+	// @Param: P
+	// @DisplayName: Proportional Gain
+	// @Description: Proportional gain from roll angle demands to ailerons. Higher values allow more servo response but can cause oscillations. Automatically set and adjusted by AUTOTUNE mode.
+	// @Range: 0.1 4.0
+	// @Increment: 0.1
+	// @User: User
+	AP_GROUPINFO("TST2",        1, BTOL_Controller, testValue2,        1.0f),
+
+	// @Param: D
+	// @DisplayName: Damping Gain
+	// @Description: Damping gain from roll acceleration to ailerons. Higher values reduce rolling in turbulence, but can cause oscillations. Automatically set and adjusted by AUTOTUNE mode.
+	// @Range: 0 0.2
+	// @Increment: 0.01
+	// @User: User
+	AP_GROUPINFO("TST3",        2, BTOL_Controller, testValue3,        0.08f),
+
+	// @Param: I
+	// @DisplayName: Integrator Gain
+	// @Description: Integrator gain from long-term roll angle offsets to ailerons. Higher values "trim" out offsets faster but can cause oscillations. Automatically set and adjusted by AUTOTUNE mode.
+	// @Range: 0 1.0
+	// @Increment: 0.05
+	// @User: User
+	AP_GROUPINFO("TST4",        3, BTOL_Controller, testValue4,        0.3f),
+
+	AP_GROUPEND
+};
 
 
 

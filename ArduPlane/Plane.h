@@ -121,6 +121,9 @@
 #endif
 
 #include "RC_Channel.h"     // RC Channel Library
+#if BTOL_ENABLED == ENABLED
+#include "btol.h"
+#endif
 #include "Parameters.h"
 #include "avoidance_adsb.h"
 #include "AP_Arming.h"
@@ -128,6 +131,8 @@
 #if CONFIG_HAL_BOARD == HAL_BOARD_SITL
 #include <SITL/SITL.h>
 #endif
+
+
 
 /*
   main APM:Plane class
@@ -1075,6 +1080,7 @@ private:
     void update_btol();
     void btol_stabilize();
     void initialize_btol();
+    BTOL_Controller btolController{ahrs, aparm};
 #endif
 
 

@@ -529,6 +529,11 @@ public:
     SoaringController soaring_controller;
 #endif
 
+#if BTOL_ENABLED == ENABLED
+    // BTOL parameters
+    BTOL_Controller btolController;
+#endif
+
     // dual motor tailsitter rudder to differential thrust scaling: 0-100%
     AP_Int8 rudd_dt_gain;
 
@@ -566,7 +571,7 @@ public:
     AP_Int8 crow_flap_aileron_matching;
 
 #if BTOL_ENABLED == ENABLED
-    
+
 
 #endif
 

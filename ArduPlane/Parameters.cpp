@@ -1137,6 +1137,7 @@ const AP_Param::GroupInfo ParametersG2::var_info[] = {
     // @Path: ../libraries/AP_Soaring/AP_Soaring.cpp
     AP_SUBGROUPINFO(soaring_controller, "SOAR_", 8, ParametersG2, SoaringController),
 #endif
+
   
     // @Param: RUDD_DT_GAIN
     // @DisplayName: rudder differential thrust gain
@@ -1239,6 +1240,12 @@ const AP_Param::GroupInfo ParametersG2::var_info[] = {
     // @User: Advanced
     AP_GROUPINFO("DSPOILER_AILMTCH", 21, ParametersG2, crow_flap_aileron_matching, 100),
 
+    #if BTOL_ENABLED == ENABLED
+    // @Group: SOAR_
+    // @Path: ../libraries/AP_Soaring/AP_Soaring.cpp
+    AP_SUBGROUPINFO(btolController, "BTOL_", 22, ParametersG2, BTOL_Controller),
+    #endif
+
     AP_GROUPEND
 };
 
@@ -1246,6 +1253,9 @@ ParametersG2::ParametersG2(void) :
     ice_control(plane.rpm_sensor)
 #if SOARING_ENABLED == ENABLED
     ,soaring_controller(plane.ahrs, plane.TECS_controller, plane.aparm)
+#endif
+#if BTOL_ENABLED == ENABLED
+    ,btolController(plane.ahrs, plane.aparm)
 #endif
 {
     AP_Param::setup_object_defaults(this, var_info);
