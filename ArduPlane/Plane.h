@@ -101,6 +101,10 @@
 #include "quadplane.h"
 #include "tuning.h"
 
+//#include "btol.h"
+//#include "btol_stabilize.h"
+
+
 // Configuration
 #include "config.h"
 
@@ -183,6 +187,7 @@ private:
     // Global parameters are all contained within the 'g' and 'g2' classes.
     Parameters g;
     ParametersG2 g2;
+    //TODO: Add parameters which are needed for the btol
 
     // main loop scheduler
     AP_Scheduler scheduler;
@@ -1052,6 +1057,7 @@ private:
     void notify_mode(const Mode& mode);
     void log_init();
     void parachute_check();
+
 #if PARACHUTE == ENABLED
     void do_parachute(const AP_Mission::Mission_Command& cmd);
     void parachute_release();
@@ -1064,6 +1070,13 @@ private:
 #if SOARING_ENABLED == ENABLED
     void update_soaring();
 #endif
+
+#if BTOL_ENABLED == ENABLED
+    void update_btol();
+    void btol_stabilize();
+    void initialize_btol();
+#endif
+
 
     bool reversed_throttle;
     bool have_reverse_throttle_rc_option;

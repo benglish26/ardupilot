@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "/Users/benglish/ardupilot/ardupilot"
+		}
+	],
+	"settings": {
+		"files.associations": {
+			"istream": "cpp",
+			"*.tcc": "cpp"
+		}
+	}
+}

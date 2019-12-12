@@ -37,8 +37,14 @@ const AP_Scheduler::Task Plane::scheduler_tasks[] = {
     SCHED_TASK(check_short_failsafe,   50,    100),
     SCHED_TASK(update_speed_height,    50,    200),
     SCHED_TASK(update_control_mode,   400,    100),
+#if BTOL_ENABLED != ENABLED
     SCHED_TASK(stabilize,             400,    100),
     SCHED_TASK(set_servos,            400,    100),
+#endif   
+    //SCHED_TASK(stabilize,             400,    100),
+
+
+
     SCHED_TASK(update_throttle_hover, 100,     90),
     SCHED_TASK(read_control_switch,     7,    100),
     SCHED_TASK(update_GPS_50Hz,        50,    300),
@@ -48,6 +54,10 @@ const AP_Scheduler::Task Plane::scheduler_tasks[] = {
     SCHED_TASK(read_airspeed,          10,    100),
     SCHED_TASK(update_alt,             10,    200),
     SCHED_TASK(adjust_altitude_target, 10,    200),
+#if BTOL_ENABLED == ENABLED
+    SCHED_TASK(update_btol,            50,    400),  //blake added.  Small value for 
+    SCHED_TASK(btol_stabilize,         400,   200),  //blake added.
+#endif
 #if ADVANCED_FAILSAFE == ENABLED
     SCHED_TASK(afs_fs_check,           10,    100),
 #endif
@@ -91,7 +101,7 @@ const AP_Scheduler::Task Plane::scheduler_tasks[] = {
     SCHED_TASK_CLASS(AP_Logger, &plane.logger, periodic_tasks, 50, 400),
 #endif
     SCHED_TASK_CLASS(AP_InertialSensor, &plane.ins, periodic, 50, 50),
-    SCHED_TASK(avoidance_adsb_update,  10,    100),
+    //SCHED_TASK(avoidance_adsb_update,  10,    100), blake removed
     SCHED_TASK_CLASS(RC_Channels,       (RC_Channels*)&plane.g2.rc_channels, read_aux_all,           10,    200),
     SCHED_TASK_CLASS(AP_Button, &plane.g2.button, update, 5, 100),
 #if STATS_ENABLED == ENABLED
@@ -118,6 +128,7 @@ void Plane::setup()
     rssi.init();
 
     init_ardupilot();
+    initialize_btol();
 
     // initialise the main loop scheduler
     scheduler.init(&scheduler_tasks[0], ARRAY_SIZE(scheduler_tasks), MASK_LOG_PM);
