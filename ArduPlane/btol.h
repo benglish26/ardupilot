@@ -40,12 +40,28 @@ struct EffectorList
     //TODO: add max/min and rates.
 };  
 
-struct MassProperties
+struct AircraftProperties
 { 
     float totalMass; //kg
     float momentOfInertiaPitch;
     float momentOfInertiaRoll;
     float momentOfInertiaYaw;
+    float motor1LocationX;
+    float motor1LocationY;
+    float motor1LocationZ;
+
+    float motor2LocationX;
+    float motor2LocationY;
+    float motor2LocationZ;
+
+    float motor3LocationX;
+    float motor3LocationY;
+    float motor3LocationZ;
+
+    float centerOfMassLocationX;
+    float centerOfMassLocationY;
+    float centerOfMassLocationZ;
+
 
     //TODO: add max/min and rates.
 };  
@@ -82,6 +98,23 @@ public:
         aircraftProperties.momentOfInertiaPitch = 1.0;  //gross approximaton.  Make tuning parameter figure out actual value.
         aircraftProperties.momentOfInertiaRoll = 1.0;  //gross approximaton.  Make tuning parameter figure out actual value.
         aircraftProperties.momentOfInertiaYaw = 1.0;  //gross approximaton.  Make tuning parameter figure out actual value.
+        
+        aircraftProperties.motor1LocationX = 0.0f;
+        aircraftProperties.motor1LocationY = -0.200f;
+        aircraftProperties.motor1LocationZ = 0.0f;
+
+        aircraftProperties.motor2LocationX = 0.0f;
+        aircraftProperties.motor2LocationY= 0.200f;
+        aircraftProperties.motor2LocationZ = 0.0f;
+
+        aircraftProperties.motor3LocationX = -0.305f;
+        aircraftProperties.motor3LocationY = 0.0f;
+        aircraftProperties.motor3LocationZ = 0.0f;
+
+
+        aircraftProperties.centerOfMassLocationX = -0.053f;
+        aircraftProperties.centerOfMassLocationY = 0.0f;
+        aircraftProperties.centerOfMassLocationZ = 0.0f;
 
         effectors.elevon1Angle = 0.0f;
         effectors.elevon2Angle = 0.0f;
@@ -182,7 +215,7 @@ private:
 	float _last_out;
 
     EffectorList effectors;
-    MassProperties aircraftProperties;
+    AircraftProperties aircraftProperties;
 
     //AP_Logger::PID_Info _pid_info;
 
