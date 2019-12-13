@@ -42,7 +42,7 @@ struct EffectorList
 
 struct MassProperties
 { 
-    float motor1Thrust;
+    float totalMass; //kg
 
     //TODO: add max/min and rates.
 };  
@@ -69,6 +69,11 @@ public:
         rollRateError = 0.0f;
         yawRateError = 0.0f;
 
+        targetAccelerationZ = 0.0f;
+        targetAccelerationX = 0.0f;
+
+        aircraftProperties.totalMass = 1.0; 
+
         effectors.elevon1Angle = 0.0f;
         effectors.elevon2Angle = 0.0f;
         effectors.tilt1Angle = 0.0f;
@@ -78,17 +83,18 @@ public:
         effectors.motor3Thrust = 0.0f;
     }
 
+
     /* Do not allow copies */
     BTOL_Controller(const BTOL_Controller &other) = delete;
     BTOL_Controller &operator=(const BTOL_Controller&) = delete;
 
     void setDesiredPitchAttitude(float pitchAttitudeTarget);
     void setDesiredRollAttitude(float rollAttitudeTarget);
-    void setDesiredYawRateAttitude(float yawRateTarget);
-    //void setDesiredAccelerationX(float aX);
-    //void setDesiredAccelerationZ(float aZ);
+    void setDesiredYawRate(float yawRateTarget);
+    void setDesiredAccelerationBodyX(float aX);
+    void setDesiredAccelerationBodyZ(float aZ);
 
-    EffectorList calculateEffectorPositions(void);
+    EffectorList calculateEffectorPositions(float dt);
 
 
     //void setDesiredPitchRate
@@ -147,6 +153,9 @@ private:
     float rollRateError;
     float yawRateError;
 
+    float targetAccelerationZ;
+    float targetAccelerationX;
+
 
     //From sub attitude control code...
     AC_PID   _pid_rate_roll;
@@ -157,6 +166,7 @@ private:
 	float _last_out;
 
     EffectorList effectors;
+    MassProperties aircraftProperties;
 
     //AP_Logger::PID_Info _pid_info;
 
