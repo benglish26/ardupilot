@@ -43,6 +43,9 @@ struct EffectorList
 struct MassProperties
 { 
     float totalMass; //kg
+    float momentOfInertiaPitch;
+    float momentOfInertiaRoll;
+    float momentOfInertiaYaw;
 
     //TODO: add max/min and rates.
 };  
@@ -71,8 +74,14 @@ public:
 
         targetAccelerationZ = 0.0f;
         targetAccelerationX = 0.0f;
+        passthroughAngularAccelerationRoll = 0.0f;
+        passthroughAngularAccelerationPitch = 0.0f;
+        passthroughAngularAccelerationYaw = 0.0f;
 
-        aircraftProperties.totalMass = 1.0; 
+        aircraftProperties.totalMass = 1.0;  //approximaton.  Make tuning parameter figure out actual value.
+        aircraftProperties.momentOfInertiaPitch = 1.0;  //gross approximaton.  Make tuning parameter figure out actual value.
+        aircraftProperties.momentOfInertiaRoll = 1.0;  //gross approximaton.  Make tuning parameter figure out actual value.
+        aircraftProperties.momentOfInertiaYaw = 1.0;  //gross approximaton.  Make tuning parameter figure out actual value.
 
         effectors.elevon1Angle = 0.0f;
         effectors.elevon2Angle = 0.0f;
@@ -93,6 +102,10 @@ public:
     void setDesiredYawRate(float yawRateTarget);
     void setDesiredAccelerationBodyX(float aX);
     void setDesiredAccelerationBodyZ(float aZ);
+    void setDesiredPassthroughAngularAccelerationRoll(float waX);
+    void setDesiredPassthroughAngularAccelerationPitch(float waY);
+    void setDesiredPassthroughAngularAccelerationYaw(float waZ);
+    int16_t calculateServoValueFromAngle(float desiredAngle, float minimumAngle, float maximumAngle, int16_t minimumPWM, int16_t maximumPWM);
 
     EffectorList calculateEffectorPositions(float dt);
 
@@ -155,6 +168,9 @@ private:
 
     float targetAccelerationZ;
     float targetAccelerationX;
+    float passthroughAngularAccelerationRoll;
+    float passthroughAngularAccelerationPitch;
+    float passthroughAngularAccelerationYaw;
 
 
     //From sub attitude control code...

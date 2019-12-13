@@ -33,6 +33,7 @@ extern const AP_HAL::HAL& hal;
 #define RC_CHANNEL_NUMBER_FOR_PITCH_STICK 1
 #define RC_CHANNEL_NUMBER_FOR_YAW_STICK 3
 #define RC_CHANNEL_NUMBER_FOR_THROTTLE_STICK 2
+#define RC_CHANNEL_NUMBER_FOR_LEFT_SLIDER_STICK 6
 
 //static float rcCommandInputPitchStickAft = 0;
 //static float rcCommandInputRollStickRight = 0;
@@ -272,26 +273,36 @@ void Plane::update_btol() {  //50Hz
     //TODO: Add in a something which zeros the values if the incoming raw signal is zero.
     
     
-   // static float rcCommandInputPitchStickAft = 0;
-   // static float rcCommandInputRollStickRight = 0;
-   // static float rcCommandInputYawStickRight = 0;
-    static float rcCommandInputThrottleStickForward = 0;
+   float rcCommandInputPitchStickAft = 0;
+   float rcCommandInputRollStickRight = 0;
+   float rcCommandInputYawStickRight = 0;
+   float rcCommandInputThrottleStickForward = 0;
+   float rcCommandInputLeftSliderStickForward = 0;
     
-   // rcCommandInputPitchStickAft = constrain_float( ((float)hal.rcin->read(RC_CHANNEL_NUMBER_FOR_PITCH_STICK) - RC_CHANNEL_INPUT_CENTER_VALUE)/RC_CHANNEL_INPUT_HALF_RANGE, -1.0, 1.0);  //this should be a function, private
-   // rcCommandInputRollStickRight = constrain_float( ((float)hal.rcin->read(RC_CHANNEL_NUMBER_FOR_ROLL_STICK) - RC_CHANNEL_INPUT_CENTER_VALUE)/RC_CHANNEL_INPUT_HALF_RANGE, -1.0, 1.0); 
-   // rcCommandInputYawStickRight = constrain_float( ((float)hal.rcin->read(RC_CHANNEL_NUMBER_FOR_YAW_STICK) - RC_CHANNEL_INPUT_CENTER_VALUE)/RC_CHANNEL_INPUT_HALF_RANGE, -1.0, 1.0); 
+    //need protections which set these to neutral values if the signal isn't present. TODO
+    rcCommandInputPitchStickAft = constrain_float( ((float)hal.rcin->read(RC_CHANNEL_NUMBER_FOR_PITCH_STICK) - RC_CHANNEL_INPUT_CENTER_VALUE)/RC_CHANNEL_INPUT_HALF_RANGE, -1.0, 1.0);  //this should be a function, private
+    rcCommandInputRollStickRight = constrain_float( ((float)hal.rcin->read(RC_CHANNEL_NUMBER_FOR_ROLL_STICK) - RC_CHANNEL_INPUT_CENTER_VALUE)/RC_CHANNEL_INPUT_HALF_RANGE, -1.0, 1.0);  //I don't know if any of these are in the correct orientation.
+    rcCommandInputYawStickRight = constrain_float( ((float)hal.rcin->read(RC_CHANNEL_NUMBER_FOR_YAW_STICK) - RC_CHANNEL_INPUT_CENTER_VALUE)/RC_CHANNEL_INPUT_HALF_RANGE, -1.0, 1.0); 
     rcCommandInputThrottleStickForward = constrain_float( ((float)hal.rcin->read(RC_CHANNEL_NUMBER_FOR_THROTTLE_STICK) - RC_CHANNEL_INPUT_CENTER_VALUE)/RC_CHANNEL_INPUT_HALF_RANGE, -1.0, 1.0); 
+    rcCommandInputLeftSliderStickForward = constrain_float( ((float)hal.rcin->read(RC_CHANNEL_NUMBER_FOR_LEFT_SLIDER_STICK) - RC_CHANNEL_INPUT_CENTER_VALUE)/RC_CHANNEL_INPUT_HALF_RANGE, -1.0, 1.0); 
 
     #define MAX_BODY_AXIS_POWERED_LIFT_ACCELERATION_COMMAND_MS 20.0
-    float desiredVerticalAccelerationComponent = ((rcCommandInputThrottleStickForward + 1.0f) / 2.0f) * MAX_BODY_AXIS_POWERED_LIFT_ACCELERATION_COMMAND_MS; //this is the wrong direciton, of course!
-    
+    #define MAX_BODY_AXIS_POWERED_ACCELERATION_COMMAND_MS 15.0
+    float desiredUpAccelerationComponent = ((rcCommandInputThrottleStickForward + 1.0f) / 2.0f) * MAX_BODY_AXIS_POWERED_LIFT_ACCELERATION_COMMAND_MS; //this is the wrong direciton, of course!
+    float desiredForwardAccelerationComponent = (rcCommandInputLeftSliderStickForward) * MAX_BODY_AXIS_POWERED_ACCELERATION_COMMAND_MS;
+    //need protections
     
     //calculate pitch atttiude
     Plane::btolController.setDesiredPitchAttitude(0.0f);
     Plane::btolController.setDesiredRollAttitude(0.0f);
     Plane::btolController.setDesiredYawRate(0.0f);
 
-    Plane::btolController.setDesiredAccelerationBodyZ(desiredVerticalAccelerationComponent);  //this (of course) needs work.
+    Plane::btolController.setDesiredAccelerationBodyZ(desiredUpAccelerationComponent);  //this (of course) needs work.
+    Plane::btolController.setDesiredAccelerationBodyX(desiredForwardAccelerationComponent);  //this (of course) needs work.
+
+    Plane::btolController.setDesiredPassthroughAngularAccelerationPitch(rcCommandInputPitchStickAft * 1.0f);
+    Plane::btolController.setDesiredPassthroughAngularAccelerationRoll(rcCommandInputRollStickRight * 1.0f);
+    Plane::btolController.setDesiredPassthroughAngularAccelerationYaw(rcCommandInputYawStickRight * 1.0f); //TODO: these are temporary gain placeholders.
 
     //calculate roll atttiude
 
@@ -410,10 +421,18 @@ void Plane::btol_stabilize() {
     EffectorList effectorCommands;
     effectorCommands = btolController.calculateEffectorPositions( 0.0025f ); //this delta time is wrong, of course!  Should be dynamicly populated.
 
-    int16_t servoControlValue1 = SERVO_CONTROL_CENTER_VALUE + constrain_int16(int16_t(effectorCommands.tilt2Angle * 500), -500, 500);
-    int16_t servoControlValue2 = SERVO_CONTROL_CENTER_VALUE + constrain_int16(int16_t(effectorCommands.elevon1Angle * 500), -500, 500);
-    int16_t servoControlValue3 = SERVO_CONTROL_CENTER_VALUE + constrain_int16(int16_t(effectorCommands.elevon2Angle * 500), -500, 500);
-    int16_t servoControlValue4 = SERVO_CONTROL_CENTER_VALUE + constrain_int16(int16_t(effectorCommands.tilt1Angle * 500), -500, 500);
+    //int16_t servoControlValue1 = SERVO_CONTROL_CENTER_VALUE + constrain_int16(int16_t(effectorCommands.elevon1Angle * 500), -500, 500);
+    //int16_t servoControlValue2 = SERVO_CONTROL_CENTER_VALUE + constrain_int16(int16_t(effectorCommands.elevon2Angle * 500), -500, 500);
+    //int16_t servoControlValue3 = 1000 + constrain_int16(int16_t(effectorCommands.tilt1Angle * 500), 0, 1000); //TODO: quick test.
+    //int16_t servoControlValue4 = 1000 + constrain_int16(int16_t(effectorCommands.tilt2Angle * 500), 0, 1000);
+
+
+    int16_t servoControlValue1 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.elevon1Angle, -0.785398f, 0.785398f, 1000, 2000);
+    int16_t servoControlValue2 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.elevon2Angle, -0.785398f, 0.785398f, 2000, 1000);
+    int16_t servoControlValue3 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.tilt2Angle, 0.0f, 1.74533f, 2000, 1000);
+    int16_t servoControlValue4 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.tilt2Angle, 0.0f, 1.74533f, 1000, 2000);
+
+
 
 
     #define MOTOR_CONTROL_MIN_VALUE 1000
@@ -467,6 +486,35 @@ void BTOL_Controller::setDesiredAccelerationBodyZ(float aZ)
     targetAccelerationZ = aZ;
 }
 
+void BTOL_Controller::setDesiredPassthroughAngularAccelerationRoll(float waX)
+{
+         passthroughAngularAccelerationRoll = waX;
+}
+void BTOL_Controller::setDesiredPassthroughAngularAccelerationPitch(float waY)
+{
+        passthroughAngularAccelerationPitch = waY;
+}
+void BTOL_Controller::setDesiredPassthroughAngularAccelerationYaw(float waZ)
+{
+        passthroughAngularAccelerationYaw = waZ;
+}
+
+int16_t BTOL_Controller::calculateServoValueFromAngle(float desiredAngle, float minimumAngle, float maximumAngle, int16_t minimumPWM, int16_t maximumPWM)
+{
+    int16_t servoPWMValue = 1500;
+    desiredAngle = constrain_float(desiredAngle, minimumAngle, maximumAngle); //we obviously can't command past the min or max, so lets not try!
+
+    float angleRatio = (desiredAngle - minimumAngle) / (maximumAngle - minimumAngle); //This needs to be checked!  TODO!  handle negatives, reversed, etc.
+    
+    int16_t pwmOutputRange = maximumPWM - minimumPWM; //this could easily be negative if the servo is reversed....need to handle that case.
+
+    int16_t pwmAngleContribution = (int16_t) ((float) pwmOutputRange * angleRatio);
+
+    servoPWMValue = minimumPWM + pwmAngleContribution;
+
+    return servoPWMValue;
+}
+
 EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
 {
     //get rate errors
@@ -474,35 +522,68 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         pitchRateError = targetPitchRate - _ahrs.get_gyro().y;  //pitch
         yawRateError = targetYawRate - _ahrs.get_gyro().z;  //yaw
 
-    //get desired moments
+    //calculate desired moments
         //calculate reponse to the rate errors.
-        float desiredMomentY = 0;
-        desiredMomentY;
-
-    //get desired accelerations
-        float desiredAccelerationZ = targetAccelerationZ;
-
-        float requiredForceZ = desiredAccelerationZ * aircraftProperties.totalMass;
-
+        float desiredMomentX = 0.0f;
+        float desiredMomentY = 0.0f;
+        float desiredMomentZ = 0.0f;
+        desiredMomentX = passthroughAngularAccelerationRoll * aircraftProperties.momentOfInertiaRoll; //passthrough to start to help build effector blender.
+        desiredMomentY = passthroughAngularAccelerationPitch * aircraftProperties.momentOfInertiaPitch;
+        desiredMomentZ = passthroughAngularAccelerationYaw * aircraftProperties.momentOfInertiaYaw;
+        
+        
+    //calculate desired forces
+        float desiredAccelerationZ = targetAccelerationZ;  //Right now commanded directly by pilot
+        float requiredForceZ = desiredAccelerationZ * aircraftProperties.totalMass; //Newtons
 
     //calculate effector outputs
 
-        effectors.motor1Thrust = requiredForceZ / 3.0f;  //Isn't working right now.
-        effectors.motor2Thrust = targetAccelerationZ / 20.0f * 8;
-        effectors.motor3Thrust = targetAccelerationZ / 20.0f * 3;  //quick and dirty test.
+        //control surfaces...quick test 
+        //trailing edge which direction?
+        float elevon1Angle = 0.0f; //there is likely a better metric...ratio, or effort, or contribution...
+        float elevon2Angle = 0.0f;
+        float pitchMomentToElevonSurfaceDeflectionGain = 1.0f;
+        float rollMomentToElevonSurfaceDeflectionGain = 1.0f;
+
+        elevon1Angle = pitchMomentToElevonSurfaceDeflectionGain * desiredMomentY + rollMomentToElevonSurfaceDeflectionGain * desiredMomentX;
+        elevon2Angle = pitchMomentToElevonSurfaceDeflectionGain * desiredMomentY - rollMomentToElevonSurfaceDeflectionGain * desiredMomentX;
+
+        effectors.elevon1Angle = elevon1Angle;
+        effectors.elevon2Angle = elevon2Angle;
+
+        float tilt1Angle = 0.0f; //0 is forward, 90degrees (this is radians) is up.
+        float tilt2Angle = 0.0f;
+        float tiltCollectiveAngle = 1.5708 - targetAccelerationX * 0.174533; //TODO: this is a hacky test.  90 +- 10 degrees. //works, but the accel value is in m/s/s and is very large!
+        float tiltDeltaAngle = 0.0; //positive values cause right yaw (or left roll = (  ))
+
+        tiltDeltaAngle = desiredMomentZ * 0.3; //TODO: quick test.
+
+        tilt1Angle = tiltCollectiveAngle + tiltDeltaAngle;
+        tilt2Angle = tiltCollectiveAngle - tiltDeltaAngle;
+
+        effectors.tilt1Angle = tilt1Angle;
+        effectors.tilt2Angle = tilt2Angle;
+
+
+        effectors.motor1Thrust = requiredForceZ / 3.0f;  //working //quick and dirty test.
+        //effectors.motor2Thrust = targetAccelerationZ / 20.0f * 8; //quick and dirty test.
+        effectors.motor2Thrust = targetAccelerationZ / 3.0f; //quick and dirty test. to see if we could normalize the output, and it works!
+        effectors.motor3Thrust = targetAccelerationZ / 3.0f;  //quick and dirty test.
 
         //(1) calculate front z acceleration vs aft z acceleration based on body z acceleration and y moment.
 
         //(2) use x accel to get the desired tilt angle.
-
+        
         //(3) Matrix rotation into the tilt frame for delta tilt and delta thrust. for roll and yaw.
 
 
+
+
     //calculate 
-        effectors.elevon1Angle = rollRateError;
-        effectors.elevon2Angle = pitchRateError;
-        effectors.tilt1Angle = yawRateError;
-        effectors.tilt2Angle = _ahrs.pitch;
+       // effectors.elevon1Angle = rollRateError;
+       // effectors.elevon2Angle = pitchRateError;
+       // effectors.tilt1Angle = 0.0; //yawRateError;
+       // effectors.tilt2Angle = 0.0;//_ahrs.pitch;
 
     return effectors;
 }
