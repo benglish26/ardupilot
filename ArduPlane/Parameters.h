@@ -570,11 +570,6 @@ public:
     AP_Int8 crow_flap_options;
     AP_Int8 crow_flap_aileron_matching;
 
-#if BTOL_ENABLED == ENABLED
-
-
-#endif
-
 };
 
 extern const AP_Param::Info var_info[];
