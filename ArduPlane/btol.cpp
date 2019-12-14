@@ -297,7 +297,7 @@ void Plane::update_btol() {  //50Hz
     Plane::btolController.setDesiredRollAttitude(0.0f);
     Plane::btolController.setDesiredYawRate(0.0f);
 
-    Plane::btolController.setDesiredAccelerationBodyZ(desiredUpAccelerationComponent);  //this (of course) needs work.
+    Plane::btolController.setDesiredAccelerationBodyZ(desiredUpAccelerationComponent * -1.0);  //the -1.0 converts this into the +Z = down frame.  this (of course) needs work.
     Plane::btolController.setDesiredAccelerationBodyX(desiredForwardAccelerationComponent);  //this (of course) needs work.
 
     Plane::btolController.setDesiredPassthroughAngularAccelerationPitch(rcCommandInputPitchStickAft * 1.0f);
@@ -426,11 +426,24 @@ void Plane::btol_stabilize() {
     //int16_t servoControlValue3 = 1000 + constrain_int16(int16_t(effectorCommands.tilt1Angle * 500), 0, 1000); //TODO: quick test.
     //int16_t servoControlValue4 = 1000 + constrain_int16(int16_t(effectorCommands.tilt2Angle * 500), 0, 1000);
 
+    #define TILT1_SERVO_MIN_ANGLE 0.0f //radians
+    #define TILT1_SERVO_MIN_ANGLE_PWM 2060  //PWM uS
+    #define TILT1_SERVO_MAX_ANGLE 1.74533f  //radians
+    #define TILT1_SERVO_MAX_ANGLE_PWM 925 //PWM uS
 
-    int16_t servoControlValue1 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.elevon1Angle, -0.785398f, 0.785398f, 1000, 2000);
-    int16_t servoControlValue2 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.elevon2Angle, -0.785398f, 0.785398f, 2000, 1000);
-    int16_t servoControlValue3 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.tilt2Angle, 0.0f, 1.74533f, 2000, 1000);
-    int16_t servoControlValue4 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.tilt2Angle, 0.0f, 1.74533f, 1000, 2000);
+    #define TILT2_SERVO_MIN_ANGLE 0.0f //radians
+    #define TILT2_SERVO_MIN_ANGLE_PWM 925 //PWM uS
+    #define TILT2_SERVO_MAX_ANGLE 1.74533f //radians
+    #define TILT2_SERVO_MAX_ANGLE_PWM 2070 //PWM uS
+
+
+
+    int16_t servoValueElevon1 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.elevon1Angle, -0.785398f, 0.785398f, 1000, 2000);
+    int16_t servoValueElevon2 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.elevon2Angle, -0.785398f, 0.785398f, 2000, 1000);
+    int16_t servoValueTilt1 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.tilt1Angle, TILT1_SERVO_MIN_ANGLE, TILT1_SERVO_MAX_ANGLE, TILT1_SERVO_MIN_ANGLE_PWM, TILT1_SERVO_MAX_ANGLE_PWM);
+    int16_t servoValueTilt2 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.tilt2Angle, TILT2_SERVO_MIN_ANGLE, TILT2_SERVO_MAX_ANGLE, TILT2_SERVO_MIN_ANGLE_PWM, TILT2_SERVO_MAX_ANGLE_PWM);
+    //int16_t servoValueTilt1 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.tilt1Angle, 0.0f, 1.74533f, 2000, 1000);
+    //int16_t servoValueTilt2 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.tilt2Angle, 0.0f, 1.74533f, 1000, 2000);
 
     #define MOTOR_CONTROL_MIN_VALUE 1000
     #define MOTOR_CONTROL_MAX_VALUE 2000
@@ -441,19 +454,20 @@ void Plane::btol_stabilize() {
 
     //starting out expecting values from 0.0 to +1.0
     //need to convert motor thrust to ESC commands using some scalar...ie: from newtons to scalar 0.0 to 1.0
-    int16_t servoControlValue6 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor1Thrust / MOTOR_1_MAX_THRUST_N ) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE); //this needs to be scaled and offset correctly TODO
-    int16_t servoControlValue7 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor2Thrust / MOTOR_2_MAX_THRUST_N )* MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);
-    int16_t servoControlValue8 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor3Thrust / MOTOR_3_MAX_THRUST_N ) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);  //isn't working.  Is stuck at 2000.
+    int16_t servoValueMotor1 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor1Thrust / MOTOR_1_MAX_THRUST_N ) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE); //this needs to be scaled and offset correctly TODO
+    int16_t servoValueMotor2 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor2Thrust / MOTOR_2_MAX_THRUST_N )* MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);
+    int16_t servoValueMotor3 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor3Thrust / MOTOR_3_MAX_THRUST_N ) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);  //isn't working.  Is stuck at 2000.
 //Need to put more protections!  better than above.
+//consider swapping the order so the motors can be in the first 4 if needed to get 400Hz update rate.
     hal.rcout->cork();  //  SRV_Channels::cork();
-    hal.rcout->write(CH_1, servoControlValue1);
-    hal.rcout->write(CH_2, servoControlValue2);  //not working...perhaps base zero??
-    hal.rcout->write(CH_3, servoControlValue3);
-    hal.rcout->write(CH_4, servoControlValue4);
+    hal.rcout->write(CH_1, servoValueElevon1);
+    hal.rcout->write(CH_2, servoValueElevon2);  //not working...perhaps base zero??
+    hal.rcout->write(CH_3, servoValueTilt1);
+    hal.rcout->write(CH_4, servoValueTilt2);
     hal.rcout->write(CH_5, servoControlValue5);
-    hal.rcout->write(CH_6, servoControlValue6);
-    hal.rcout->write(CH_7, servoControlValue7);
-    hal.rcout->write(CH_8, servoControlValue8);
+    hal.rcout->write(CH_6, servoValueMotor1);
+    hal.rcout->write(CH_7, servoValueMotor2);
+    hal.rcout->write(CH_8, servoValueMotor3);
     hal.rcout->push();  //will need to use: SRV_Channels::push(); or parts of it when we use BL Heli or D-shot!
 }
 
@@ -552,43 +566,110 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         effectors.elevon1Angle = elevon1Angle;
         effectors.elevon2Angle = elevon2Angle;
 
+
+        //Calculate forward/aft motor thurst(force) distribution from the total body Z force desired and the desired pitching moment.
+        float totalForceUp = 0.0f; //backwards
+        float totalMomentForward = 0.0f; //backwards, but this is how I did the math, so lets start with this, as the arms work out this way if the x axis is used
+        float forceUpMotors1and2 = 0.0f;
+        float forceUpMotor3 = 0.0f;
+
+        totalForceUp = requiredForceZ * -1.0f; //-1.0 is converting from the +Z = down frame //could get rid of this, and fix when we calculate the tilt angle?
+        totalMomentForward = desiredMomentY;  //there is no -1.0 here because the moment arms are defined in such a way that the moment produced is negative!
+
+        //TODO: need a divide by zero check here.  Make sure that D12 and D3 are not equal!
+        float distanceXFromCGMotors12 = aircraftProperties.motor1LocationX - aircraftProperties.centerOfMassLocationX;
+        float distanceXFromCGMotor3 = aircraftProperties.motor3LocationX - aircraftProperties.centerOfMassLocationX;
+
+        forceUpMotors1and2 = (totalMomentForward - distanceXFromCGMotor3 * totalForceUp) / (distanceXFromCGMotors12 - distanceXFromCGMotor3); //this appears to be working...pitch seems to be backwards, but total force up is working, which means required force Z and pitch moment need to be reversed upstream of here.. could also be an transmitter reversing issue.
+        forceUpMotor3 = (distanceXFromCGMotors12 * totalForceUp - totalMomentForward) / (distanceXFromCGMotors12 - distanceXFromCGMotor3); //this appears to be working...don't know about direction/magnitude...
+
+        //NOW CALCULATE DIFFERENT FORCES FOR THE ROLL CONTROLLER
+        float forceUpMotor1 = 0.0;
+        float forceUpMotor2 = 0.0;
+        float deltaForceUpStation12ForRoll = 0.0; //re-aranged so it would say "deltaForce" =)
+
+        //Note this will change if we switch to the +Z = down coordinate system. (will need to remove the *-1.0)
+        //this will be very simplified because of the symetric design of the airplane.  Can make more encompasing later!
+        float distanceYFromCGMotors12ForRoll = aircraftProperties.motor1LocationY - aircraftProperties.centerOfMassLocationY;//(this is a negative value)  CG = 0.0.
+        deltaForceUpStation12ForRoll = desiredMomentX / (2.0f * distanceYFromCGMotors12ForRoll);
+        #define DELTA_MOTOR_FORCE_UP_FOR_ROLL_POLARITY 1.0 //change this if we move to a controls frame down.
+
+
+        forceUpMotor1 = forceUpMotors1and2 / 2.0f + DELTA_MOTOR_FORCE_UP_FOR_ROLL_POLARITY * -1.0f * deltaForceUpStation12ForRoll;
+        forceUpMotor2 = forceUpMotors1and2 / 2.0f + DELTA_MOTOR_FORCE_UP_FOR_ROLL_POLARITY *  1.0f  * deltaForceUpStation12ForRoll;
+
+        //NOW CALCULATE DIFFERENT FORCES FOR THE YAW CONTROLLER
+        float forceForwardMotors12 = 0.0;
+        float forceForwardMotor1 = 0.0;
+        float forceForwardMotor2 = 0.0;
+        float deltaForceForwardStation12ForYaw = 0.0;
+
+        //max forward thrust should be defined on the capabilities of the motors, and need for yaw overhead.
+
+        forceForwardMotors12 = constrain_float(requiredForceX, -20, 20); //temp min and max thrust values.  //Will need to change this for forward flight vs hover.
+
+        #define DELTA_MOTOR_FORCE_FORWARD_FOR_YAW_POLARITY 1.0 //change this if we move to a controls frame down.
+        float distanceYFromCGMotors12ForYaw = aircraftProperties.motor1LocationY - aircraftProperties.centerOfMassLocationY;//(this is a negative value)  CG = 0.0.
+        deltaForceForwardStation12ForYaw = desiredMomentZ / (2.0f * distanceYFromCGMotors12ForYaw);
+
+        forceForwardMotor1 = forceForwardMotors12 / 2.0f + DELTA_MOTOR_FORCE_FORWARD_FOR_YAW_POLARITY * -1.0f * deltaForceForwardStation12ForYaw;
+        forceForwardMotor2 = forceForwardMotors12 / 2.0f + DELTA_MOTOR_FORCE_FORWARD_FOR_YAW_POLARITY *  1.0f  * deltaForceForwardStation12ForYaw;
+
+        //Calculate tilt angle from the forces...
+
+        //for the tilt angle calulation, enforce a minimum upward force.
+
+        float tilt1Angle = 0.0f; //0 is forward, 90degrees (this is radians) is up.
+        float tiltCalculationMotor1ForceUp = forceUpMotor1;
+        float tiltCalculationMotor1ForceForward = forceForwardMotor1;
+        #define TILT_CALCULATION_MOTOR_UP_FORCE_MIN_VALUE 0.01f  //this should only happen when there are small numbers to deal with, ie when the total trust magniude is low...
+        if(tiltCalculationMotor1ForceUp < TILT_CALCULATION_MOTOR_UP_FORCE_MIN_VALUE)
+        {
+            tiltCalculationMotor1ForceUp = TILT_CALCULATION_MOTOR_UP_FORCE_MIN_VALUE;
+        }
+
+        tilt1Angle = atan2f(tiltCalculationMotor1ForceUp, tiltCalculationMotor1ForceForward);
+
+        float tilt2Angle = 0.0f;
+        float tiltCalculationMotor2ForceUp = forceUpMotor2;
+        float tiltCalculationMotor2ForceForward = forceForwardMotor2;
+        //#define TILT_CALCULATION_MOTOR_UP_FORCE_MIN_VALUE 0.2  //this should only happen when there are small numbers to deal with, ie when the total trust magniude is low...
+        if(tiltCalculationMotor2ForceUp < TILT_CALCULATION_MOTOR_UP_FORCE_MIN_VALUE)
+        {
+            tiltCalculationMotor2ForceUp = TILT_CALCULATION_MOTOR_UP_FORCE_MIN_VALUE;
+        }
+
+        tilt2Angle = atan2f(tiltCalculationMotor2ForceUp, tiltCalculationMotor2ForceForward);
+
+
+
+        /*
+        //hacky test!
         float tilt1Angle = 0.0f; //0 is forward, 90degrees (this is radians) is up.
         float tilt2Angle = 0.0f;
-        float tiltCollectiveAngle = 1.5708 - requiredForceX/15.0f * 0.174533; //TODO: this is a hacky test.  90 +- 10 degrees. //works, but the accel value is in m/s/s and is very large!
+        float tiltCollectiveAngle = 1.5708/2 - requiredForceX/10.0f * 1.5708/2; //TODO: this is a hacky test.  90 +- 10 degrees. //works, but the accel value is in m/s/s and is very large!
         float tiltDeltaAngle = 0.0; //positive values cause right yaw (or left roll = (  ))
 
-        tiltDeltaAngle = desiredMomentZ * 0.3; //TODO: quick test.
+        tiltDeltaAngle = desiredMomentZ * 0.5; //TODO: quick test.
 
         tilt1Angle = tiltCollectiveAngle + tiltDeltaAngle;
-        tilt2Angle = tiltCollectiveAngle - tiltDeltaAngle;
+        tilt2Angle = tiltCollectiveAngle - tiltDeltaAngle;*/
+
+        float motor1ForceDemand = 0.0;
+        float motor2ForceDemand = 0.0;
+        float motor3ForceDemand = 0.0;
+
+        //these need to be in the direction of the tilt, ie, what's attainable.  What is below isn't right...
+        motor1ForceDemand = sqrtf(tiltCalculationMotor1ForceUp*tiltCalculationMotor1ForceUp + tiltCalculationMotor1ForceForward*tiltCalculationMotor1ForceForward);
+        motor2ForceDemand = sqrtf(tiltCalculationMotor2ForceUp*tiltCalculationMotor2ForceUp + tiltCalculationMotor2ForceForward*tiltCalculationMotor2ForceForward);
+        motor3ForceDemand = forceUpMotor3; //make sure can't be negative...or update the firmware so it can be!
 
         effectors.tilt1Angle = tilt1Angle;
         effectors.tilt2Angle = tilt2Angle;
 
-        float totalForceUp = 0.0f; //backwards
-        float totalMomentForward = 0.0f; //backwards, but this is how I did the math, so lets start with this, as the arms work out this way if the x axis is used
-        float forceMotors1and2 = 0.0f;
-        float forceMotor3 = 0.0f;
-
-        totalForceUp = requiredForceZ;
-        totalMomentForward = -1.0f * desiredMomentY;  
-
-        //TODO: need a divide by zero check here.  Make sure that D12 and D3 are not equal!
-        float distanceFromCGMotors12 = aircraftProperties.motor1LocationX - aircraftProperties.centerOfMassLocationX;
-        float distanceFromCGMotor3 = aircraftProperties.motor3LocationX - aircraftProperties.centerOfMassLocationX;
-
-        forceMotors1and2 = (totalMomentForward - distanceFromCGMotor3 * totalForceUp) / (distanceFromCGMotors12 - distanceFromCGMotor3); //this appears to be working...pitch seems to be backwards, but total force up is working, which means required force Z and pitch moment need to be reversed upstream of here.. could also be an transmitter reversing issue.
-        forceMotor3 = (distanceFromCGMotors12 * totalForceUp - totalMomentForward) / (distanceFromCGMotors12 - distanceFromCGMotor3); //this appears to be working...don't know about direction/magnitude...
-
-        //NOW CALCULATE IDEAL COLLECTIVE TILT ANGLE
-
-        //NOW CALCULATE DIFFERENT FORCES FOR THE ROLL CONTROLLER, YAW CONTROLLER...
-
-
-        effectors.motor1Thrust = forceMotors1and2 / 2.0f;  //working //quick and dirty test.
-        //effectors.motor2Thrust = targetAccelerationZ / 20.0f * 8; //quick and dirty test.
-        effectors.motor2Thrust = forceMotors1and2 / 2.0f; //quick and dirty test. to see if we could normalize the output, and it works!
-        effectors.motor3Thrust = forceMotor3;  //quick and dirty test.
+        effectors.motor1Thrust = motor1ForceDemand;//forceUpMotor1; //will need to be replaced the total force, not just the up force!
+        effectors.motor2Thrust = motor2ForceDemand; //forceUpMotor2; //will need to be replaced the total force, not just the up force!
+        effectors.motor3Thrust = motor3ForceDemand; //will need to be replaced the total force, not just the up force!
 
         //(1) calculate front z acceleration vs aft z acceleration based on body z acceleration and y moment.
 
