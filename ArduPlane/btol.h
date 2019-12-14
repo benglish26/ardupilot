@@ -139,6 +139,7 @@ public:
     void setDesiredPassthroughAngularAccelerationPitch(float waY);
     void setDesiredPassthroughAngularAccelerationYaw(float waZ);
     int16_t calculateServoValueFromAngle(float desiredAngle, float minimumAngle, float maximumAngle, int16_t minimumPWM, int16_t maximumPWM);
+    float calculateMotorThrustBasedOnTiltAngle(float attainedTiltAngle, float desiredForceForward, float desiredForceUp, float satisfactionAngleLow, float satisfactionAngleHigh); //use this function carefully to avoid div/0!
 
     EffectorList calculateEffectorPositions(float dt);
 

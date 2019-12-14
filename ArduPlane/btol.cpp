@@ -35,6 +35,16 @@ extern const AP_HAL::HAL& hal;
 #define RC_CHANNEL_NUMBER_FOR_THROTTLE_STICK 2
 #define RC_CHANNEL_NUMBER_FOR_LEFT_SLIDER_STICK 6
 
+#define TILT1_SERVO_MIN_ANGLE 0.0f //radians
+#define TILT1_SERVO_MIN_ANGLE_PWM 2060  //PWM uS
+#define TILT1_SERVO_MAX_ANGLE 1.74533f  //radians
+#define TILT1_SERVO_MAX_ANGLE_PWM 925 //PWM uS
+
+#define TILT2_SERVO_MIN_ANGLE 0.0f //radians
+#define TILT2_SERVO_MIN_ANGLE_PWM 925 //PWM uS
+#define TILT2_SERVO_MAX_ANGLE 1.74533f //radians
+#define TILT2_SERVO_MAX_ANGLE_PWM 2070 //PWM uS
+
 //static float rcCommandInputPitchStickAft = 0;
 //static float rcCommandInputRollStickRight = 0;
 //static float rcCommandInputYawStickRight = 0;
@@ -426,15 +436,7 @@ void Plane::btol_stabilize() {
     //int16_t servoControlValue3 = 1000 + constrain_int16(int16_t(effectorCommands.tilt1Angle * 500), 0, 1000); //TODO: quick test.
     //int16_t servoControlValue4 = 1000 + constrain_int16(int16_t(effectorCommands.tilt2Angle * 500), 0, 1000);
 
-    #define TILT1_SERVO_MIN_ANGLE 0.0f //radians
-    #define TILT1_SERVO_MIN_ANGLE_PWM 2060  //PWM uS
-    #define TILT1_SERVO_MAX_ANGLE 1.74533f  //radians
-    #define TILT1_SERVO_MAX_ANGLE_PWM 925 //PWM uS
 
-    #define TILT2_SERVO_MIN_ANGLE 0.0f //radians
-    #define TILT2_SERVO_MIN_ANGLE_PWM 925 //PWM uS
-    #define TILT2_SERVO_MAX_ANGLE 1.74533f //radians
-    #define TILT2_SERVO_MAX_ANGLE_PWM 2070 //PWM uS
 
 
 
@@ -528,6 +530,42 @@ int16_t BTOL_Controller::calculateServoValueFromAngle(float desiredAngle, float 
     return servoPWMValue;
 }
 
+ float BTOL_Controller::calculateMotorThrustBasedOnTiltAngle(float attainedTiltAngle, float desiredForceForward, float desiredForceUp, float satisfactionAngleLow, float satisfactionAngleHigh)
+ {
+     //protect satisfaction angles.  TODO: this needs to be way better...ie: protect agains overlap.  protect against too high, too low.
+    if(satisfactionAngleLow < 0.03f) satisfactionAngleLow = 0.03f;
+    if(satisfactionAngleLow > 0.78f) satisfactionAngleLow = 0.78f;
+
+    if(satisfactionAngleHigh > 1.55f) satisfactionAngleHigh = 1.55f;
+    if(satisfactionAngleHigh < 0.79f) satisfactionAngleHigh = 0.79f;
+
+
+    float motorForceDemand;
+//todo: make this into a function!
+        if(attainedTiltAngle < satisfactionAngleLow)
+        {
+            //Lower Range
+            motorForceDemand = desiredForceForward / cosf(attainedTiltAngle); //don;t div/0!  TODO!
+        }else if (attainedTiltAngle < satisfactionAngleHigh){
+            //Middle Range
+            //linear blend?  what type of blend?
+            float satisfactionRatio = 0.0;
+            float satisfactionValueX = desiredForceForward / cosf(attainedTiltAngle); //don;t div/0!  TODO!
+            float satisfactionValueY = desiredForceUp / sinf(attainedTiltAngle); //don;t div/0!  TODO!
+            float middleRange = satisfactionAngleHigh - satisfactionAngleLow;
+
+            satisfactionRatio = (attainedTiltAngle - satisfactionAngleLow) / middleRange; //TODO: div/0 protection!
+            motorForceDemand = satisfactionRatio * satisfactionValueX + (1.0f - satisfactionRatio) * satisfactionValueY;
+
+        }else{
+            //Upper Range
+            motorForceDemand = desiredForceUp / sinf(attainedTiltAngle); //don't div/0 TODO!
+        }
+
+    //This should also output the residual!
+    return motorForceDemand;
+ }
+
 EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
 {
     //get rate errors
@@ -619,7 +657,7 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
 
         //for the tilt angle calulation, enforce a minimum upward force.
 
-        float tilt1Angle = 0.0f; //0 is forward, 90degrees (this is radians) is up.
+        float idealTilt1Angle = 0.0f; //0 is forward, 90degrees (this is radians) is up.
         float tiltCalculationMotor1ForceUp = forceUpMotor1;
         float tiltCalculationMotor1ForceForward = forceForwardMotor1;
         #define TILT_CALCULATION_MOTOR_UP_FORCE_MIN_VALUE 0.01f  //this should only happen when there are small numbers to deal with, ie when the total trust magniude is low...
@@ -628,9 +666,46 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
             tiltCalculationMotor1ForceUp = TILT_CALCULATION_MOTOR_UP_FORCE_MIN_VALUE;
         }
 
-        tilt1Angle = atan2f(tiltCalculationMotor1ForceUp, tiltCalculationMotor1ForceForward);
+        idealTilt1Angle = atan2f(tiltCalculationMotor1ForceUp, tiltCalculationMotor1ForceForward);
 
-        float tilt2Angle = 0.0f;
+
+        float tilt1Angle = 0.0f;
+        tilt1Angle = constrain_float(idealTilt1Angle, TILT1_SERVO_MIN_ANGLE, TILT2_SERVO_MAX_ANGLE);
+
+        float motor1ForceDemand = 0.0;
+        #define TILT_SATISFACTION_ANGLE_LOW 0.174533f
+        #define TILT_SATISFACTION_ANGLE_HIGH 1.309f
+
+        //TODO: individual tilts shouldn't be making full decisions.  look at collective values.
+
+        motor1ForceDemand = calculateMotorThrustBasedOnTiltAngle(tilt1Angle, tiltCalculationMotor1ForceForward, tiltCalculationMotor1ForceUp, TILT_SATISFACTION_ANGLE_LOW, TILT_SATISFACTION_ANGLE_HIGH);
+
+/*
+        //todo: make this into a function!
+        if(tilt1Angle < TILT_SATISFACTION_ANGLE_LOW)
+        {
+            //Lower Range
+            motor1ForceDemand = tiltCalculationMotor1ForceForward / cosf(tilt1Angle); //don;t div/0!  TODO!
+        }else if (tilt1Angle < TILT_SATISFACTION_ANGLE_HIGH){
+            //Middle Range
+            //linear blend?  what type of blend?
+            float satisfactionRatio = 0.0;
+            float satisfactionValueX = tiltCalculationMotor1ForceForward / cosf(tilt1Angle); //don;t div/0!  TODO!
+            float satisfactionValueY = tiltCalculationMotor1ForceUp / sinf(tilt1Angle); //don;t div/0!  TODO!
+            float middleRange = TILT_SATISFACTION_ANGLE_HIGH - TILT_SATISFACTION_ANGLE_LOW;
+
+            satisfactionRatio = (tilt1Angle - TILT_SATISFACTION_ANGLE_LOW) / middleRange; //TODO: div/0 protection!
+            motor1ForceDemand = satisfactionRatio * satisfactionValueX + (1.0f - satisfactionRatio) * satisfactionValueY;
+
+        }else{
+            //Upper Range
+            motor1ForceDemand = tiltCalculationMotor1ForceUp / sinf(tilt1Angle); //don't div/0 TODO!
+        }
+        */
+        //the tilts move fast, but not that fast...
+        //move tilt 1 angle to this value at the correct rate, Add tilt rate limits, so we can slew correctly and don’t put motor values in that aren’t aligned with tilt angle.
+
+        float idealTilt2Angle = 0.0f;
         float tiltCalculationMotor2ForceUp = forceUpMotor2;
         float tiltCalculationMotor2ForceForward = forceForwardMotor2;
         //#define TILT_CALCULATION_MOTOR_UP_FORCE_MIN_VALUE 0.2  //this should only happen when there are small numbers to deal with, ie when the total trust magniude is low...
@@ -639,7 +714,36 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
             tiltCalculationMotor2ForceUp = TILT_CALCULATION_MOTOR_UP_FORCE_MIN_VALUE;
         }
 
-        tilt2Angle = atan2f(tiltCalculationMotor2ForceUp, tiltCalculationMotor2ForceForward);
+        idealTilt2Angle = atan2f(tiltCalculationMotor2ForceUp, tiltCalculationMotor2ForceForward);
+
+        float tilt2Angle = 0.0f;
+        tilt2Angle = constrain_float(idealTilt2Angle, TILT1_SERVO_MIN_ANGLE, TILT2_SERVO_MAX_ANGLE);
+        
+        float motor2ForceDemand = 0.0;
+        //todo: make this into a function!
+
+        motor2ForceDemand = calculateMotorThrustBasedOnTiltAngle(tilt2Angle, tiltCalculationMotor2ForceForward, tiltCalculationMotor2ForceUp, TILT_SATISFACTION_ANGLE_LOW, TILT_SATISFACTION_ANGLE_HIGH);
+
+        /*if(tilt2Angle < TILT_SATISFACTION_ANGLE_LOW)
+        {
+            //Lower Range
+            motor2ForceDemand = tiltCalculationMotor2ForceForward / cosf(tilt2Angle); //don;t div/0!  TODO!
+        }else if (tilt2Angle < TILT_SATISFACTION_ANGLE_HIGH){
+            //Middle Range
+            //linear blend?  what type of blend?
+            float satisfactionRatio = 0.0;
+            float satisfactionValueX = tiltCalculationMotor2ForceForward / cosf(tilt2Angle); //don;t div/0!  TODO!
+            float satisfactionValueY = tiltCalculationMotor2ForceUp / sinf(tilt2Angle); //don;t div/0!  TODO!
+            float middleRange = TILT_SATISFACTION_ANGLE_HIGH - TILT_SATISFACTION_ANGLE_LOW;
+
+            satisfactionRatio = (tilt2Angle - TILT_SATISFACTION_ANGLE_LOW) / middleRange; //TODO: div/0 protection!
+            motor2ForceDemand = satisfactionRatio * satisfactionValueX + (1.0f - satisfactionRatio) * satisfactionValueY;
+
+        }else{
+            //Upper Range
+            motor2ForceDemand = tiltCalculationMotor2ForceUp / sinf(tilt2Angle); //don't div/0 TODO!
+        }*/
+
 
 
 
@@ -655,13 +759,12 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         tilt1Angle = tiltCollectiveAngle + tiltDeltaAngle;
         tilt2Angle = tiltCollectiveAngle - tiltDeltaAngle;*/
 
-        float motor1ForceDemand = 0.0;
-        float motor2ForceDemand = 0.0;
+        //float motor1ForceDemand = 0.0;
         float motor3ForceDemand = 0.0;
 
         //these need to be in the direction of the tilt, ie, what's attainable.  What is below isn't right...
-        motor1ForceDemand = sqrtf(tiltCalculationMotor1ForceUp*tiltCalculationMotor1ForceUp + tiltCalculationMotor1ForceForward*tiltCalculationMotor1ForceForward);
-        motor2ForceDemand = sqrtf(tiltCalculationMotor2ForceUp*tiltCalculationMotor2ForceUp + tiltCalculationMotor2ForceForward*tiltCalculationMotor2ForceForward);
+        //motor1ForceDemand = sqrtf(tiltCalculationMotor1ForceUp*tiltCalculationMotor1ForceUp + tiltCalculationMotor1ForceForward*tiltCalculationMotor1ForceForward);
+        //motor2ForceDemand = sqrtf(tiltCalculationMotor2ForceUp*tiltCalculationMotor2ForceUp + tiltCalculationMotor2ForceForward*tiltCalculationMotor2ForceForward);
         motor3ForceDemand = forceUpMotor3; //make sure can't be negative...or update the firmware so it can be!
 
         effectors.tilt1Angle = tilt1Angle;
