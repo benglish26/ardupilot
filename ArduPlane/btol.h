@@ -250,6 +250,15 @@ public:
 
     AP_Float &getTiltCommandMappingPolarity(void) { return manualTiltCommandMappingPolarity; } 
 
+    AP_Float &getRollRateCommandGain(void) { return rollRateCommandGain; } 
+    AP_Float &getPitchRateCommandGain(void) { return pitchRateCommandGain; } 
+    AP_Float &getYawRateCommandGain(void) { return yawRateCommandGain; } 
+    AP_Float &getRollAttitudeCommandGain(void) { return rollAttitudeCommandGain; } 
+    AP_Float &getPitchAttitudeCommandGain(void) { return pitchAttitudeCommandGain; } 
+
+    AP_Float &getMotor12MaxThrust(void) { return motor12MaxThrust; } 
+    AP_Float &getMotor3MaxThrust(void) { return motor3MaxThrust; } 
+
     // pid accessors
     AC_PID &get_rate_roll_pid() { return _pid_rate_roll; } //don't know what this does or why we need it.
     AC_PID &get_rate_pitch_pid() { return _pid_rate_pitch; }
@@ -259,10 +268,13 @@ private:
     AP_AHRS &_ahrs;
     const AP_Vehicle::FixedWing &aparm;
     //AP_AutoTune::ATGains gains;
-    AP_Float testValue1;
-    AP_Float testValue2;
-    AP_Float testValue3;
-    AP_Float testValue4;
+    AP_Float rollRateCommandGain;
+    AP_Float pitchRateCommandGain;
+    AP_Float yawRateCommandGain;
+    AP_Float rollAttitudeCommandGain;
+    AP_Float pitchAttitudeCommandGain;
+    AP_Float motor12MaxThrust;
+    AP_Float motor3MaxThrust;
 
     AP_Float rollAttitudeErrorToRollRateGain;
     AP_Float pitchAttitudeErrorToPitchRateGain;

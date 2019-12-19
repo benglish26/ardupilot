@@ -52,6 +52,9 @@ extern const AP_HAL::HAL& hal;
 #define MTV_MAX_COMMANDABLE_TILT_ACCELERATION_IN_MSS 20.0f
 #define MTV_MIN_COMMANDABLE_TILT_ACCELERATION_IN_MSS 0.0f
 
+#define MOTOR_12_DEFAULT_MAX_THRUST_N 7.0f//8.0
+#define MOTOR_3_DEFAULT_MAX_THRUST_N 3.0f//3.0f
+
 //static float rcCommandInputPitchStickAft = 0;
 //static float rcCommandInputRollStickRight = 0;
 //static float rcCommandInputYawStickRight = 0;
@@ -72,7 +75,7 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
 	// @Units: s
 	// @Increment: 0.1
 	// @User: Advanced
-	AP_GROUPINFO("TST1",      3, BTOL_Controller, testValue1,       0.5f),
+	AP_GROUPINFO("RRATECMDG",      3, BTOL_Controller, rollRateCommandGain,       0.5f),
 
 	// @Param: P
 	// @DisplayName: Proportional Gain
@@ -80,7 +83,7 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
 	// @Range: 0.1 4.0
 	// @Increment: 0.1
 	// @User: User
-	AP_GROUPINFO("TST2",        4, BTOL_Controller, testValue2,        1.0f),
+	AP_GROUPINFO("PRATECMDG",        4, BTOL_Controller, pitchRateCommandGain,        0.5f),
 
 	// @Param: D
 	// @DisplayName: Damping Gain
@@ -88,7 +91,7 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
 	// @Range: 0 0.2
 	// @Increment: 0.01
 	// @User: User
-	AP_GROUPINFO("TST3",        5, BTOL_Controller, testValue3,        0.08f),
+	AP_GROUPINFO("YRATECMDG",        5, BTOL_Controller, yawRateCommandGain,        0.5f),
 
 	// @Param: I
 	// @DisplayName: Integrator Gain
@@ -96,12 +99,17 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
 	// @Range: 0 1.0
 	// @Increment: 0.05
 	// @User: User
-	AP_GROUPINFO("TST4",        6, BTOL_Controller, testValue4,        0.3f),
+	AP_GROUPINFO("RATTICMDG",        6, BTOL_Controller, rollAttitudeCommandGain,        0.5f),
 
     AP_GROUPINFO("ROLL_ATR",      7, BTOL_Controller, rollAttitudeErrorToRollRateGain,       1.0f), //attitude error to rate gain.
     AP_GROUPINFO("PTCH_ATR",      8, BTOL_Controller, pitchAttitudeErrorToPitchRateGain,       1.0f),
     AP_GROUPINFO("MTV_TLT_DIR",      9, BTOL_Controller, manualTiltCommandMappingPolarity,       1.0f),
-  
+
+    AP_GROUPINFO("PATTICMDG",        10, BTOL_Controller, pitchAttitudeCommandGain,        0.5f),
+
+    AP_GROUPINFO("M12_MXTRST",        11, BTOL_Controller, motor12MaxThrust,        MOTOR_12_DEFAULT_MAX_THRUST_N),
+    AP_GROUPINFO("M3_MXTHRST",        12, BTOL_Controller, motor3MaxThrust,        MOTOR_3_DEFAULT_MAX_THRUST_N),
+
 
 	AP_GROUPEND
 };
@@ -147,13 +155,13 @@ void Plane::update_btol() {  //50Hz
 
     
     //calculate pitch atttiude
-    g2.btolController.setDesiredPitchAttitude(rcCommandInputPitchStickAft * 0.5f);
-    g2.btolController.setDesiredRollAttitude(rcCommandInputRollStickRight * 0.5f);
+    g2.btolController.setDesiredPitchAttitude(rcCommandInputPitchStickAft * g2.btolController.getPitchAttitudeCommandGain());
+    g2.btolController.setDesiredRollAttitude(rcCommandInputRollStickRight * g2.btolController.getRollAttitudeCommandGain());
     //Plane::btolController.setDesiredYawRate(0.0f);//heading rate...
     
-    g2.btolController.setCommandedPitchRate(rcCommandInputPitchStickAft * 1.0f); //TODO: temporary gain placeholders.
-    g2.btolController.setCommandedRollRate(rcCommandInputRollStickRight * 1.0f);
-    g2.btolController.setCommandedYawRate(rcCommandInputYawStickRight * 1.0f); 
+    g2.btolController.setCommandedPitchRate(rcCommandInputPitchStickAft * g2.btolController.getPitchRateCommandGain()); //TODO: temporary gain placeholders.
+    g2.btolController.setCommandedRollRate(rcCommandInputRollStickRight * g2.btolController.getRollRateCommandGain());
+    g2.btolController.setCommandedYawRate(rcCommandInputYawStickRight * g2.btolController.getYawRateCommandGain()); 
 
     g2.btolController.setDesiredPassthroughAngularAccelerationPitch(rcCommandInputPitchStickAft * 1.0f);
     g2.btolController.setDesiredPassthroughAngularAccelerationRoll(rcCommandInputRollStickRight * 1.0f);
@@ -330,15 +338,15 @@ void Plane::btol_stabilize() {
     #define MOTOR_CONTROL_MIN_VALUE 1000
     #define MOTOR_CONTROL_MAX_VALUE 2000
     #define MOTOR_CONTROL_RANGE (MOTOR_CONTROL_MAX_VALUE-MOTOR_CONTROL_MIN_VALUE)
-    #define MOTOR_1_MAX_THRUST_N 8.0f
-    #define MOTOR_2_MAX_THRUST_N 8.0f
-    #define MOTOR_3_MAX_THRUST_N 3.0f
+    //#define MOTOR_1_MAX_THRUST_N //8.0 10.0f
+    //#define MOTOR_2_MAX_THRUST_N //8.0  10.0f
+    //#define MOTOR_3_MAX_THRUST_N //3.0f
 
     //starting out expecting values from 0.0 to +1.0
     //need to convert motor thrust to ESC commands using some scalar...ie: from newtons to scalar 0.0 to 1.0
-    int16_t servoControlValueMotor1 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor1Thrust / MOTOR_1_MAX_THRUST_N ) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE); //this needs to be scaled and offset correctly TODO
-    int16_t servoControlValueMotor2 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor2Thrust / MOTOR_2_MAX_THRUST_N )* MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);
-    int16_t servoControlValueMotor3 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor3Thrust / MOTOR_3_MAX_THRUST_N ) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);  //isn't working.  Is stuck at 2000.
+    int16_t servoControlValueMotor1 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor1Thrust / g2.btolController.getMotor12MaxThrust()) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE); //this needs to be scaled and offset correctly TODO
+    int16_t servoControlValueMotor2 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor2Thrust / g2.btolController.getMotor12MaxThrust())* MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);
+    int16_t servoControlValueMotor3 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor3Thrust / g2.btolController.getMotor3MaxThrust()) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);  //isn't working.  Is stuck at 2000.
 
 
     if(g2.btolController.getArmedState() != 1)
