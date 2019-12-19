@@ -41,6 +41,10 @@ const AP_Scheduler::Task Plane::scheduler_tasks[] = {
     SCHED_TASK(stabilize,             400,    100),
     SCHED_TASK(set_servos,            400,    100),
 #endif   
+#if BTOL_ENABLED == ENABLED
+    SCHED_TASK(update_btol,            50,    400),  //blake added.  Small value for 
+    SCHED_TASK(btol_stabilize,         400,   200),  //blake added.
+#endif
     //SCHED_TASK(stabilize,             400,    100),
 
 
@@ -54,10 +58,7 @@ const AP_Scheduler::Task Plane::scheduler_tasks[] = {
     SCHED_TASK(read_airspeed,          10,    100),
     SCHED_TASK(update_alt,             10,    200),
     SCHED_TASK(adjust_altitude_target, 10,    200),
-#if BTOL_ENABLED == ENABLED
-    SCHED_TASK(update_btol,            50,    400),  //blake added.  Small value for 
-    SCHED_TASK(btol_stabilize,         400,   200),  //blake added.
-#endif
+
 #if ADVANCED_FAILSAFE == ENABLED
     SCHED_TASK(afs_fs_check,           10,    100),
 #endif

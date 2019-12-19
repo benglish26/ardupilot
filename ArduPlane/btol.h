@@ -231,41 +231,29 @@ public:
 
     EffectorList calculateEffectorPositions(float dt);
 
-
-    //void setDesiredPitchRate
-
-//	int32_t get_rate_out(float desired_rate, float scaler);
-//	int32_t get_servo_out(int32_t angle_err, float scaler, bool disable_integrator);
-
-//	void reset_I();
-
-    /*
-      reduce the integrator, used when we have a low scale factor in a quadplane hover
-    */
-    void decay_I() {
-        // this reduces integrator by 95% over 2s
-      //  _pid_info.I *= 0.995f;
-    }
-    
-    //void autotune_start(void) { autotune.start(); }
-    //void autotune_restore(void) { autotune.stop(); }
-
-    //const       AP_Logger::PID_Info& get_pid_info(void) const { return _pid_info; }
-
 	static const struct AP_Param::GroupInfo var_info[];
 
 
-    // tuning accessors
-    void kP(const float v) { testValue1.set(v); }
-    void kI(const float v) { testValue2.set(v); }
-    void kD(const float v) { testValue3.set(v); }
-    void kFF(const float v) { testValue4.set(v); }
 
-    AP_Float &kP(void) { return testValue1; }
-    AP_Float &kI(void) { return testValue2; }
-    AP_Float &kD(void) { return testValue3; }
-    AP_Float &kFF(void) { return testValue4; }
-        // pid accessors
+    // tuning accessors
+    //void kP(const float v) { testValue1.set(v); }
+    //void kI(const float v) { testValue2.set(v); }
+    //void kD(const float v) { testValue3.set(v); }
+    //void kFF(const float v) { testValue4.set(v); }
+
+   // AP_Float &kP(void) { return testValue1; }
+    //AP_Float &kI(void) { return testValue2; }
+    //AP_Float &kD(void) { return testValue3; }
+   // AP_Float &kFF(void) { return testValue4; }
+
+
+
+    AP_Float &getTiltCommandMappingPolarity(void) { return manualTiltCommandMappingPolarity; } 
+
+    // pid accessors
+    AC_PID &get_rate_roll_pid() { return _pid_rate_roll; } //don't know what this does or why we need it.
+    AC_PID &get_rate_pitch_pid() { return _pid_rate_pitch; }
+    AC_PID &get_rate_yaw_pid() { return _pid_rate_yaw; }
 
 private:
     AP_AHRS &_ahrs;
@@ -278,6 +266,7 @@ private:
 
     AP_Float rollAttitudeErrorToRollRateGain;
     AP_Float pitchAttitudeErrorToPitchRateGain;
+    AP_Float manualTiltCommandMappingPolarity;
 
 
     float pitchRateError;

@@ -100,6 +100,7 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
 
     AP_GROUPINFO("ROLL_ATR",      7, BTOL_Controller, rollAttitudeErrorToRollRateGain,       1.0f), //attitude error to rate gain.
     AP_GROUPINFO("PTCH_ATR",      8, BTOL_Controller, pitchAttitudeErrorToPitchRateGain,       1.0f),
+    AP_GROUPINFO("MTV_TLT_DIR",      9, BTOL_Controller, manualTiltCommandMappingPolarity,       1.0f),
   
 
 	AP_GROUPEND
@@ -131,65 +132,73 @@ void Plane::update_btol() {  //50Hz
     float desiredForwardAccelerationComponent = (rcCommandInputLeftSliderStickForward) * MAX_BODY_AXIS_POWERED_ACCELERATION_COMMAND_MS;
     //need protections
     
+    //no longer declared in Plane.h....trying to mimic the soaring controller.
 
-
-    Plane::btolController.setDesiredAccelerationBodyZ(desiredUpAccelerationComponent * -1.0);  //the -1.0 converts this into the +Z = down frame.  this (of course) needs work.
-    Plane::btolController.setDesiredAccelerationBodyX(desiredForwardAccelerationComponent);  //this (of course) needs work.
-
+    g2.btolController.setDesiredAccelerationBodyZ(desiredUpAccelerationComponent * -1.0);  //the -1.0 converts this into the +Z = down frame.  this (of course) needs work.
+    g2.btolController.setDesiredAccelerationBodyX(desiredForwardAccelerationComponent);  //this (of course) needs work.
 
     float mtv_direct_command_tilt_angle = 0.0;
-    mtv_direct_command_tilt_angle = MTV_MIN_COMMANDABLE_TILT_ANGLE_IN_RADIANS + ((MTV_MAX_COMMANDABLE_TILT_ANGLE_IN_RADIANS-MTV_MIN_COMMANDABLE_TILT_ANGLE_IN_RADIANS) * ((1.0f * rcCommandInputLeftSliderStickForward + 1.0f) / 2.0f));
+    mtv_direct_command_tilt_angle = MTV_MIN_COMMANDABLE_TILT_ANGLE_IN_RADIANS + ((MTV_MAX_COMMANDABLE_TILT_ANGLE_IN_RADIANS-MTV_MIN_COMMANDABLE_TILT_ANGLE_IN_RADIANS) * ((g2.btolController.getTiltCommandMappingPolarity() * rcCommandInputLeftSliderStickForward + 1.0f) / 2.0f));
     float mtv_direct_command_tilt_acceleration = 0.0;
     mtv_direct_command_tilt_acceleration = MTV_MIN_COMMANDABLE_TILT_ACCELERATION_IN_MSS + ((MTV_MAX_COMMANDABLE_TILT_ACCELERATION_IN_MSS-MTV_MIN_COMMANDABLE_TILT_ACCELERATION_IN_MSS) * ((rcCommandInputThrottleStickForward + 1.0f) / 2.0f));
    
-    Plane::btolController.setDesiredTiltAngle(mtv_direct_command_tilt_angle);
-    Plane::btolController.setDesiredAccelerationAlongTiltAngle(mtv_direct_command_tilt_acceleration);
+    g2.btolController.setDesiredTiltAngle(mtv_direct_command_tilt_angle);
+    g2.btolController.setDesiredAccelerationAlongTiltAngle(mtv_direct_command_tilt_acceleration);
 
     
     //calculate pitch atttiude
-    Plane::btolController.setDesiredPitchAttitude(rcCommandInputPitchStickAft * 0.5f);
-    Plane::btolController.setDesiredRollAttitude(rcCommandInputRollStickRight * 0.5f);
+    g2.btolController.setDesiredPitchAttitude(rcCommandInputPitchStickAft * 0.5f);
+    g2.btolController.setDesiredRollAttitude(rcCommandInputRollStickRight * 0.5f);
     //Plane::btolController.setDesiredYawRate(0.0f);//heading rate...
     
-    Plane::btolController.setCommandedPitchRate(rcCommandInputPitchStickAft * 1.0f); //TODO: temporary gain placeholders.
-    Plane::btolController.setCommandedRollRate(rcCommandInputRollStickRight * 1.0f);
-    Plane::btolController.setCommandedYawRate(rcCommandInputYawStickRight * 1.0f); 
+    g2.btolController.setCommandedPitchRate(rcCommandInputPitchStickAft * 1.0f); //TODO: temporary gain placeholders.
+    g2.btolController.setCommandedRollRate(rcCommandInputRollStickRight * 1.0f);
+    g2.btolController.setCommandedYawRate(rcCommandInputYawStickRight * 1.0f); 
 
-    Plane::btolController.setDesiredPassthroughAngularAccelerationPitch(rcCommandInputPitchStickAft * 1.0f);
-    Plane::btolController.setDesiredPassthroughAngularAccelerationRoll(rcCommandInputRollStickRight * 1.0f);
-    Plane::btolController.setDesiredPassthroughAngularAccelerationYaw(rcCommandInputYawStickRight * 1.0f); //TODO: these are temporary gain placeholders.
+    g2.btolController.setDesiredPassthroughAngularAccelerationPitch(rcCommandInputPitchStickAft * 1.0f);
+    g2.btolController.setDesiredPassthroughAngularAccelerationRoll(rcCommandInputRollStickRight * 1.0f);
+    g2.btolController.setDesiredPassthroughAngularAccelerationYaw(rcCommandInputYawStickRight * 1.0f); //TODO: these are temporary gain placeholders.
 
 
 
     //Todo: this should be a state machine.  This is a bit hacky, setting it every cycle.
-    if(hal.rcin->read(RC_CHANNEL_NUMBER_FOR_ARM_SWITCH) > 1600 && Plane::btolController.getArmedState() != 1)
+    if(hal.rcin->read(RC_CHANNEL_NUMBER_FOR_ARM_SWITCH) > 1600 && g2.btolController.getArmedState() != 1)
     {
-        Plane::btolController.setArmedState(1);
+        g2.btolController.setArmedState(1);
         gcs().send_text(MAV_SEVERITY_CRITICAL, "BTOL ARMED");
 
     }
-    else if(hal.rcin->read(RC_CHANNEL_NUMBER_FOR_ARM_SWITCH) < 1400 && Plane::btolController.getArmedState() != 0)
+    else if(hal.rcin->read(RC_CHANNEL_NUMBER_FOR_ARM_SWITCH) < 1400 && g2.btolController.getArmedState() != 0)
     {
-        Plane::btolController.setArmedState(0);
+        g2.btolController.setArmedState(0);
         gcs().send_text(MAV_SEVERITY_CRITICAL, "BTOL DISARMED");
     }
 
     int16_t modeSwitchValue = hal.rcin->read(RC_CHANNEL_NUMBER_FOR_MODE_SWITCH);
 
-    if(modeSwitchValue > 1700 && Plane::btolController.getRegulatorModeState() != CONTROLLER_STATE_REGULATOR_MODE_ATTITUDE)
+    if(modeSwitchValue > 1700 && g2.btolController.getRegulatorModeState() != CONTROLLER_STATE_REGULATOR_MODE_ATTITUDE)
     {
-        Plane::btolController.setRegulatorModeState(CONTROLLER_STATE_REGULATOR_MODE_ATTITUDE);
+        g2.btolController.setRegulatorModeState(CONTROLLER_STATE_REGULATOR_MODE_ATTITUDE);
         gcs().send_text(MAV_SEVERITY_CRITICAL, "MODE ATTITUDE");
     }
-    else if(modeSwitchValue > 1300 && modeSwitchValue < 1700 && Plane::btolController.getRegulatorModeState() != CONTROLLER_STATE_REGULATOR_MODE_RATE)
+    else if(modeSwitchValue > 1300 && modeSwitchValue < 1700 && g2.btolController.getRegulatorModeState() != CONTROLLER_STATE_REGULATOR_MODE_RATE)
     {
-        Plane::btolController.setRegulatorModeState(CONTROLLER_STATE_REGULATOR_MODE_RATE);
+        g2.btolController.setRegulatorModeState(CONTROLLER_STATE_REGULATOR_MODE_RATE);
         gcs().send_text(MAV_SEVERITY_CRITICAL, "MODE RATE");
     }
-    else if (modeSwitchValue < 1300 && Plane::btolController.getRegulatorModeState() != CONTROLLER_STATE_REGULATOR_MODE_PASSTHROUGH)
+    else if (modeSwitchValue < 1300 && g2.btolController.getRegulatorModeState() != CONTROLLER_STATE_REGULATOR_MODE_PASSTHROUGH)
     {
-        Plane::btolController.setRegulatorModeState(CONTROLLER_STATE_REGULATOR_MODE_PASSTHROUGH);
+        g2.btolController.setRegulatorModeState(CONTROLLER_STATE_REGULATOR_MODE_PASSTHROUGH);
         gcs().send_text(MAV_SEVERITY_CRITICAL, "MODE PASS THROUGH");
+
+        // Reset the PID filters
+        g2.btolController.get_rate_roll_pid().reset_filter();
+        g2.btolController.get_rate_pitch_pid().reset_filter();
+        g2.btolController.get_rate_yaw_pid().reset_filter();
+
+        g2.btolController.get_rate_roll_pid().reset_I();
+        g2.btolController.get_rate_pitch_pid().reset_I();
+        g2.btolController.get_rate_yaw_pid().reset_I();
     }
 
     //calculate roll atttiude
@@ -300,7 +309,7 @@ void Plane::btol_stabilize() {
     int16_t servoControlValue5 = SERVO_CONTROL_CENTER_VALUE;// + constrain_int16(int16_t(rcCommandInputPitchStickAft*500), -500, 500);  //works (float)
 
     EffectorList effectorCommands;
-    effectorCommands = btolController.calculateEffectorPositions( 0.0025f ); //this delta time is wrong, of course!  Should be dynamicly populated.
+    effectorCommands = g2.btolController.calculateEffectorPositions( PID_400HZ_DT); //this delta time is wrong, of course!  Should be dynamicly populated.
 
     //int16_t servoControlValue1 = SERVO_CONTROL_CENTER_VALUE + constrain_int16(int16_t(effectorCommands.elevon1Angle * 500), -500, 500);
     //int16_t servoControlValue2 = SERVO_CONTROL_CENTER_VALUE + constrain_int16(int16_t(effectorCommands.elevon2Angle * 500), -500, 500);
@@ -311,10 +320,10 @@ void Plane::btol_stabilize() {
 
 
 
-    int16_t servoControlValueElevon1 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.elevon1Angle, -0.785398f, 0.785398f, 1000, 2000);
-    int16_t servoControlValueElevon2 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.elevon2Angle, -0.785398f, 0.785398f, 2000, 1000);
-    int16_t servoControlValueTilt1 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.tilt1Angle, TILT1_SERVO_MIN_ANGLE, TILT1_SERVO_MAX_ANGLE, TILT1_SERVO_MIN_ANGLE_PWM, TILT1_SERVO_MAX_ANGLE_PWM);
-    int16_t servoControlValueTilt2 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.tilt2Angle, TILT2_SERVO_MIN_ANGLE, TILT2_SERVO_MAX_ANGLE, TILT2_SERVO_MIN_ANGLE_PWM, TILT2_SERVO_MAX_ANGLE_PWM);
+    int16_t servoControlValueElevon1 = g2.btolController.calculateServoValueFromAngle(effectorCommands.elevon1Angle, -0.785398f, 0.785398f, 1000, 2000);
+    int16_t servoControlValueElevon2 = g2.btolController.calculateServoValueFromAngle(effectorCommands.elevon2Angle, -0.785398f, 0.785398f, 2000, 1000);
+    int16_t servoControlValueTilt1 = g2.btolController.calculateServoValueFromAngle(effectorCommands.tilt1Angle, TILT1_SERVO_MIN_ANGLE, TILT1_SERVO_MAX_ANGLE, TILT1_SERVO_MIN_ANGLE_PWM, TILT1_SERVO_MAX_ANGLE_PWM);
+    int16_t servoControlValueTilt2 = g2.btolController.calculateServoValueFromAngle(effectorCommands.tilt2Angle, TILT2_SERVO_MIN_ANGLE, TILT2_SERVO_MAX_ANGLE, TILT2_SERVO_MIN_ANGLE_PWM, TILT2_SERVO_MAX_ANGLE_PWM);
     //int16_t servoValueTilt1 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.tilt1Angle, 0.0f, 1.74533f, 2000, 1000);
     //int16_t servoValueTilt2 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.tilt2Angle, 0.0f, 1.74533f, 1000, 2000);
 
@@ -332,7 +341,7 @@ void Plane::btol_stabilize() {
     int16_t servoControlValueMotor3 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor3Thrust / MOTOR_3_MAX_THRUST_N ) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);  //isn't working.  Is stuck at 2000.
 
 
-    if(Plane::btolController.getArmedState() != 1)
+    if(g2.btolController.getArmedState() != 1)
     {
         servoControlValueMotor1 = THROTTLE_DISARMED_VALUE;
         servoControlValueMotor2 = THROTTLE_DISARMED_VALUE;
@@ -533,20 +542,25 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         //float rollAttitudeToRollRateGain = 2.0;
         
 
-        float targetRollRate = attitudeErrorRoll * rollAttitudeErrorToRollRateGain.get();
+        float targetRollRate = attitudeErrorRoll * rollAttitudeErrorToRollRateGain.get(); //this could be an issue, also.  TODO
         float targetPitchRate = attitudeErrorPitch * pitchAttitudeErrorToPitchRateGain.get(); //not sure if this is the right way to do this!
+        //get_rate_roll_pid()
+        desiredMomentX = get_rate_roll_pid().update_all(targetRollRate,_ahrs.get_gyro().x, false);
+        desiredMomentY = get_rate_pitch_pid().update_all(targetPitchRate,_ahrs.get_gyro().y, false);
+        desiredMomentZ = get_rate_yaw_pid().update_all(command.targetYawRate,_ahrs.get_gyro().z, false);
         
-        desiredMomentX = _pid_rate_roll.update_all(targetRollRate,_ahrs.get_gyro().x, false);
-        desiredMomentY = _pid_rate_pitch.update_all(targetPitchRate,_ahrs.get_gyro().y, false);
-        desiredMomentZ = _pid_rate_yaw.update_all(command.targetYawRate,_ahrs.get_gyro().z, false);
+        //testing the getter...see if this helps with patameters saving/use?
+        //desiredMomentX = _pid_rate_roll.update_all(targetRollRate,_ahrs.get_gyro().x, false);
+        //desiredMomentY = _pid_rate_pitch.update_all(targetPitchRate,_ahrs.get_gyro().y, false);
+        //desiredMomentZ = _pid_rate_yaw.update_all(command.targetYawRate,_ahrs.get_gyro().z, false);
 
     }
 
     if(state.regulatorMode == CONTROLLER_STATE_REGULATOR_MODE_RATE)
     {
-        desiredMomentX = _pid_rate_roll.update_all(command.targetRollRate,_ahrs.get_gyro().x, false);
-        desiredMomentY = _pid_rate_pitch.update_all(command.targetPitchRate,_ahrs.get_gyro().y, false);
-        desiredMomentZ = _pid_rate_yaw.update_all(command.targetYawRate,_ahrs.get_gyro().z, false);
+        desiredMomentX = get_rate_roll_pid().update_all(command.targetRollRate,_ahrs.get_gyro().x, false);
+        desiredMomentY = get_rate_pitch_pid().update_all(command.targetPitchRate,_ahrs.get_gyro().y, false);
+        desiredMomentZ = get_rate_yaw_pid().update_all(command.targetYawRate,_ahrs.get_gyro().z, false);
 
     }
 

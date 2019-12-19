@@ -1080,7 +1080,7 @@ private:
     void update_btol();
     void btol_stabilize();
     void initialize_btol();
-    BTOL_Controller btolController{ahrs, aparm};
+    //BTOL_Controller btolController{ahrs, aparm};  //TODO: Checking removing this.  Not sure what it's doing or not...No effect...
 #endif
 
 

@@ -1241,8 +1241,8 @@ const AP_Param::GroupInfo ParametersG2::var_info[] = {
     AP_GROUPINFO("DSPOILER_AILMTCH", 21, ParametersG2, crow_flap_aileron_matching, 100),
 
     #if BTOL_ENABLED == ENABLED
-    // @Group: SOAR_
-    // @Path: ../libraries/AP_Soaring/AP_Soaring.cpp
+    // @Group: BTOL_
+    // @Path: TBD
     AP_SUBGROUPINFO(btolController, "BTOL_", 22, ParametersG2, BTOL_Controller),
     #endif
 
