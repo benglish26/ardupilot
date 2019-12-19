@@ -11,22 +11,38 @@
 #include <AC_PID/AC_PID.h>
 #include <AC_PID/AC_P.h>
 
+// default rate controller PID gains
+/*#define AC_ATC_HELI_RATE_RP_P                       0.024f
+#define AC_ATC_HELI_RATE_RP_I                       0.6f
+#define AC_ATC_HELI_RATE_RP_D                       0.001f
+#define AC_ATC_HELI_RATE_RP_IMAX                    1.0f
+#define AC_ATC_HELI_RATE_RP_FF                      0.060f
+#define AC_ATC_HELI_RATE_RP_FILT_HZ                 20.0f
+#define AC_ATC_HELI_RATE_YAW_P                      0.18f
+#define AC_ATC_HELI_RATE_YAW_I                      0.12f
+#define AC_ATC_HELI_RATE_YAW_D                      0.003f
+#define AC_ATC_HELI_RATE_YAW_IMAX                   1.0f
+#define AC_ATC_HELI_RATE_YAW_FF                     0.024f
+#define AC_ATC_HELI_RATE_YAW_FILT_HZ                20.0f*/
+
 #define AC_PID_ROLL_RATE_P                          0.2f
 #define AC_PID_ROLL_RATE_I                          0.0f
 #define AC_PID_ROLL_RATE_D                          0.02f
 #define AC_PID_ROLL_RATE_IMAX                       0.0f
 #define AC_PID_ROLL_RATE_FF                         0.060f
-#define AC_PID_ROLL_RATE_FILTER_T                   10.0f  //target filter
-#define AC_PID_ROLL_RATE_FILTER_E                   10.0f //error filter
+#define AC_PID_ROLL_RATE_FILTER_T                   0.0f  //target filter
+#define AC_PID_ROLL_RATE_FILTER_E                   0.0f //error filter
 #define AC_PID_ROLL_RATE_FILTER_D                   0.0f //derivitive filter
+//https://github.com/KalebKE/AccelerationExplorer/wiki/Low-Pass-Filter-Optimize-Alpha
+//see: AC_PID.cpp: float AC_PID::get_filt_alpha(float filt_hz) const  0.0f is no filtering.
 
 #define AC_PID_PITCH_RATE_P                          0.2f
 #define AC_PID_PITCH_RATE_I                          0.0f
 #define AC_PID_PITCH_RATE_D                          0.02f
 #define AC_PID_PITCH_RATE_IMAX                       0.0f
 #define AC_PID_PITCH_RATE_FF                         0.060f
-#define AC_PID_PITCH_RATE_FILTER_T                   10.0f  //target filter
-#define AC_PID_PITCH_RATE_FILTER_E                   10.0f //error filter
+#define AC_PID_PITCH_RATE_FILTER_T                   0.0f  //target filter
+#define AC_PID_PITCH_RATE_FILTER_E                   0.0f //error filter
 #define AC_PID_PITCH_RATE_FILTER_D                   0.0f //derivitive filter
 
 #define AC_PID_YAW_RATE_P                          0.2f
@@ -34,11 +50,11 @@
 #define AC_PID_YAW_RATE_D                          0.02f
 #define AC_PID_YAW_RATE_IMAX                       0.0f
 #define AC_PID_YAW_RATE_FF                         0.060f
-#define AC_PID_YAW_RATE_FILTER_T                   10.0f  //target filter
-#define AC_PID_YAW_RATE_FILTER_E                   10.0f //error filter
+#define AC_PID_YAW_RATE_FILTER_T                   0.0f  //target filter
+#define AC_PID_YAW_RATE_FILTER_E                   0.0f //error filter
 #define AC_PID_YAW_RATE_FILTER_D                   0.0f //derivitive filter
 
-#define TEMP_DT                                     0.0025f
+#define PID_400HZ_DT                            0.0025f
 
 /*#define AC_ATC_HELI_RATE_YAW_P                      0.18f
 #define AC_ATC_HELI_RATE_YAW_I                      0.12f
@@ -129,9 +145,9 @@ public:
     BTOL_Controller(AP_AHRS &ahrs, const AP_Vehicle::FixedWing &parms): 
     _ahrs(ahrs), 
     aparm(parms),
-    _pid_rate_roll(AC_PID_ROLL_RATE_P, AC_PID_ROLL_RATE_I, AC_PID_ROLL_RATE_D, AC_PID_ROLL_RATE_IMAX, AC_PID_ROLL_RATE_FF, AC_PID_ROLL_RATE_FILTER_T, AC_PID_ROLL_RATE_FILTER_E, AC_PID_ROLL_RATE_FILTER_D, TEMP_DT),
-    _pid_rate_pitch(AC_PID_PITCH_RATE_P, AC_PID_PITCH_RATE_I, AC_PID_PITCH_RATE_D, AC_PID_PITCH_RATE_IMAX, AC_PID_PITCH_RATE_FF, AC_PID_PITCH_RATE_FILTER_T, AC_PID_PITCH_RATE_FILTER_E, AC_PID_PITCH_RATE_FILTER_D, TEMP_DT),
-    _pid_rate_yaw(AC_PID_YAW_RATE_P, AC_PID_YAW_RATE_I, AC_PID_YAW_RATE_D, AC_PID_YAW_RATE_IMAX, AC_PID_YAW_RATE_FF, AC_PID_YAW_RATE_FILTER_T, AC_PID_YAW_RATE_FILTER_E, AC_PID_YAW_RATE_FILTER_D, TEMP_DT)
+    _pid_rate_roll(AC_PID_ROLL_RATE_P, AC_PID_ROLL_RATE_I, AC_PID_ROLL_RATE_D, AC_PID_ROLL_RATE_IMAX, AC_PID_ROLL_RATE_FF, AC_PID_ROLL_RATE_FILTER_T, AC_PID_ROLL_RATE_FILTER_E, AC_PID_ROLL_RATE_FILTER_D, PID_400HZ_DT),
+    _pid_rate_pitch(AC_PID_PITCH_RATE_P, AC_PID_PITCH_RATE_I, AC_PID_PITCH_RATE_D, AC_PID_PITCH_RATE_IMAX, AC_PID_PITCH_RATE_FF, AC_PID_PITCH_RATE_FILTER_T, AC_PID_PITCH_RATE_FILTER_E, AC_PID_PITCH_RATE_FILTER_D, PID_400HZ_DT),
+    _pid_rate_yaw(AC_PID_YAW_RATE_P, AC_PID_YAW_RATE_I, AC_PID_YAW_RATE_D, AC_PID_YAW_RATE_IMAX, AC_PID_YAW_RATE_FF, AC_PID_YAW_RATE_FILTER_T, AC_PID_YAW_RATE_FILTER_E, AC_PID_YAW_RATE_FILTER_D, PID_400HZ_DT)
     {
         AP_Param::setup_object_defaults(this, var_info);
         command.targetPitchAttitude = 0.0f;
