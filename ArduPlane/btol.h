@@ -276,6 +276,9 @@ private:
     AP_Float testValue3;
     AP_Float testValue4;
 
+    AP_Float rollAttitudeErrorToRollRateGain;
+    AP_Float pitchAttitudeErrorToPitchRateGain;
+
 
     float pitchRateError;
     float rollRateError;

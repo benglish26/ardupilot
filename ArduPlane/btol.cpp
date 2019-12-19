@@ -59,193 +59,12 @@ extern const AP_HAL::HAL& hal;
 
 const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
 	    // parameters from parent vehicle
-    //AP_NESTEDGROUPINFO(BTOL_Controller, 0),
-  //  AP_NESTEDGROUPINFO(AC_AttitudeControl, 0),
-    // @Param: RAT_RLL_P
-    // @DisplayName: Roll axis rate controller P gain
-    // @Description: Roll axis rate controller P gain.  Converts the difference between desired roll rate and actual roll rate into a motor speed output
-    // @Range: 0.0 0.30
-    // @Increment: 0.005
-    // @User: Standard
 
-    // @Param: RAT_RLL_I
-    // @DisplayName: Roll axis rate controller I gain
-    // @Description: Roll axis rate controller I gain.  Corrects long-term difference in desired roll rate vs actual roll rate
-    // @Range: 0.0 0.5
-    // @Increment: 0.01
-    // @User: Standard
 
-    // @Param: RAT_RLL_IMAX
-    // @DisplayName: Roll axis rate controller I gain maximum
-    // @Description: Roll axis rate controller I gain maximum.  Constrains the maximum motor output that the I gain will output
-    // @Range: 0 1
-    // @Increment: 0.01
-    // @Units: %
-    // @User: Standard
-
-    // @Param: RAT_RLL_D
-    // @DisplayName: Roll axis rate controller D gain
-    // @Description: Roll axis rate controller D gain.  Compensates for short-term change in desired roll rate vs actual roll rate
-    // @Range: 0.0 0.02
-    // @Increment: 0.001
-    // @User: Standard
-
-    // @Param: RAT_RLL_FF
-    // @DisplayName: Roll axis rate controller feed forward
-    // @Description: Roll axis rate controller feed forward
-    // @Range: 0 0.5
-    // @Increment: 0.001
-    // @User: Standard
-
-    // @Param: RAT_RLL_FLTT
-    // @DisplayName: Roll axis rate controller input frequency in Hz
-    // @Description: Roll axis rate controller input frequency in Hz
-    // @Range: 1 100
-    // @Increment: 1
-    // @Units: Hz
-    // @User: Standard
-
-    // @Param: RAT_RLL_FLTE
-    // @DisplayName: Roll axis rate controller input frequency in Hz
-    // @Description: Roll axis rate controller input frequency in Hz
-    // @Range: 1 100
-    // @Increment: 1
-    // @Units: Hz
-    // @User: Standard
-
-    // @Param: RAT_RLL_FLTD
-    // @DisplayName: Roll axis rate controller input frequency in Hz
-    // @Description: Roll axis rate controller input frequency in Hz
-    // @Range: 1 100
-    // @Increment: 1
-    // @Units: Hz
-    // @User: Standard
-  // AP_SUBGROUPINFO(_pid_rate_roll, "RAT_RLL_", 1, BTOL_Controller, AC_PID),
-
-    // @Param: RAT_PIT_P
-    // @DisplayName: Pitch axis rate controller P gain
-    // @Description: Pitch axis rate controller P gain.  Converts the difference between desired pitch rate and actual pitch rate into a motor speed output
-    // @Range: 0.0 0.30
-    // @Increment: 0.005
-    // @User: Standard
-
-    // @Param: RAT_PIT_I
-    // @DisplayName: Pitch axis rate controller I gain
-    // @Description: Pitch axis rate controller I gain.  Corrects long-term difference in desired pitch rate vs actual pitch rate
-    // @Range: 0.0 0.5
-    // @Increment: 0.01
-    // @User: Standard
-
-    // @Param: RAT_PIT_IMAX
-    // @DisplayName: Pitch axis rate controller I gain maximum
-    // @Description: Pitch axis rate controller I gain maximum.  Constrains the maximum motor output that the I gain will output
-    // @Range: 0 1
-    // @Increment: 0.01
-    // @Units: %
-    // @User: Standard
-
-    // @Param: RAT_PIT_D
-    // @DisplayName: Pitch axis rate controller D gain
-    // @Description: Pitch axis rate controller D gain.  Compensates for short-term change in desired pitch rate vs actual pitch rate
-    // @Range: 0.0 0.02
-    // @Increment: 0.001
-    // @User: Standard
-
-    // @Param: RAT_PIT_FF
-    // @DisplayName: Pitch axis rate controller feed forward
-    // @Description: Pitch axis rate controller feed forward
-    // @Range: 0 0.5
-    // @Increment: 0.001
-    // @User: Standard
-
-    // @Param: RAT_PIT_FLTT
-    // @DisplayName: Pitch axis rate controller input frequency in Hz
-    // @Description: Pitch axis rate controller input frequency in Hz
-    // @Range: 1 100
-    // @Increment: 1
-    // @Units: Hz
-    // @User: Standard
-
-    // @Param: RAT_PIT_FLTE
-    // @DisplayName: Pitch axis rate controller input frequency in Hz
-    // @Description: Pitch axis rate controller input frequency in Hz
-    // @Range: 1 100
-    // @Increment: 1
-    // @Units: Hz
-    // @User: Standard
-
-    // @Param: RAT_PIT_FLTD
-    // @DisplayName: Pitch axis rate controller input frequency in Hz
-    // @Description: Pitch axis rate controller input frequency in Hz
-    // @Range: 1 100
-    // @Increment: 1
-    // @Units: Hz
-    // @User: Standard
- //   AP_SUBGROUPINFO(_pid_rate_pitch, "RAT_PIT_", 2, BTOL_Controller, AC_PID),
-
-    // @Param: RAT_YAW_P
-    // @DisplayName: Yaw axis rate controller P gain
-    // @Description: Yaw axis rate controller P gain.  Converts the difference between desired yaw rate and actual yaw rate into a motor speed output
-    // @Range: 0.0 0.50
-    // @Increment: 0.005
-    // @User: Standard
-
-    // @Param: RAT_YAW_I
-    // @DisplayName: Yaw axis rate controller I gain
-    // @Description: Yaw axis rate controller I gain.  Corrects long-term difference in desired yaw rate vs actual yaw rate
-    // @Range: 0.0 0.05
-    // @Increment: 0.01
-    // @User: Standard
-
-    // @Param: RAT_YAW_IMAX
-    // @DisplayName: Yaw axis rate controller I gain maximum
-    // @Description: Yaw axis rate controller I gain maximum.  Constrains the maximum motor output that the I gain will output
-    // @Range: 0 1
-    // @Increment: 0.01
-    // @Units: %
-    // @User: Standard
-
-    // @Param: RAT_YAW_D
-    // @DisplayName: Yaw axis rate controller D gain
-    // @Description: Yaw axis rate controller D gain.  Compensates for short-term change in desired yaw rate vs actual yaw rate
-    // @Range: 0.000 0.02
-    // @Increment: 0.001
-    // @User: Standard
-
-    // @Param: RAT_YAW_FF
-    // @DisplayName: Yaw axis rate controller feed forward
-    // @Description: Yaw axis rate controller feed forward
-    // @Range: 0 0.5
-    // @Increment: 0.001
-    // @User: Standard
-
-    // @Param: RAT_YAW_FLTT
-    // @DisplayName: Yaw axis rate controller input frequency in Hz
-    // @Description: Yaw axis rate controller input frequency in Hz
-    // @Range: 1 100
-    // @Increment: 1
-    // @Units: Hz
-    // @User: Standard
-
-    // @Param: RAT_YAW_FLTE
-    // @DisplayName: Yaw axis rate controller input frequency in Hz
-    // @Description: Yaw axis rate controller input frequency in Hz
-    // @Range: 1 100
-    // @Increment: 1
-    // @Units: Hz
-    // @User: Standard
-
-    // @Param: RAT_YAW_FLTD
-    // @DisplayName: Yaw axis rate controller input frequency in Hz
-    // @Description: Yaw axis rate controller input frequency in Hz
-    // @Range: 1 100
-    // @Increment: 1
-    // @Units: Hz
-    // @User: Standard
-  //  AP_SUBGROUPINFO(_pid_rate_yaw, "RAT_YAW_", 3, BTOL_Controller, AC_PID),
-   //AP_GROUPINFO("TST0",        2, BTOL_Controller, _pid_rate_roll,        AC_PID),
-    
-    
+    AP_SUBGROUPINFO(_pid_rate_roll, "B_ROLL_", 0, BTOL_Controller, AC_PID),
+    AP_SUBGROUPINFO(_pid_rate_pitch, "B_PTCH_", 1, BTOL_Controller, AC_PID),
+    AP_SUBGROUPINFO(_pid_rate_yaw, "B_YAW_", 2, BTOL_Controller, AC_PID),
+      
     // @Param: TCONST
 	// @DisplayName: Roll Time Constant
 	// @Description: Time constant in seconds from demanded to achieved roll angle. Most models respond well to 0.5. May be reduced for faster responses, but setting lower than a model can achieve will not help.
@@ -253,7 +72,7 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
 	// @Units: s
 	// @Increment: 0.1
 	// @User: Advanced
-	AP_GROUPINFO("TST1",      4, BTOL_Controller, testValue1,       0.5f),
+	AP_GROUPINFO("TST1",      3, BTOL_Controller, testValue1,       0.5f),
 
 	// @Param: P
 	// @DisplayName: Proportional Gain
@@ -261,7 +80,7 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
 	// @Range: 0.1 4.0
 	// @Increment: 0.1
 	// @User: User
-	AP_GROUPINFO("TST2",        5, BTOL_Controller, testValue2,        1.0f),
+	AP_GROUPINFO("TST2",        4, BTOL_Controller, testValue2,        1.0f),
 
 	// @Param: D
 	// @DisplayName: Damping Gain
@@ -269,7 +88,7 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
 	// @Range: 0 0.2
 	// @Increment: 0.01
 	// @User: User
-	AP_GROUPINFO("TST3",        6, BTOL_Controller, testValue3,        0.08f),
+	AP_GROUPINFO("TST3",        5, BTOL_Controller, testValue3,        0.08f),
 
 	// @Param: I
 	// @DisplayName: Integrator Gain
@@ -277,7 +96,11 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
 	// @Range: 0 1.0
 	// @Increment: 0.05
 	// @User: User
-	AP_GROUPINFO("TST4",        7, BTOL_Controller, testValue4,        0.3f),
+	AP_GROUPINFO("TST4",        6, BTOL_Controller, testValue4,        0.3f),
+
+    AP_GROUPINFO("ROLL_ATR",      7, BTOL_Controller, rollAttitudeErrorToRollRateGain,       1.0f), //attitude error to rate gain.
+    AP_GROUPINFO("PTCH_ATR",      8, BTOL_Controller, pitchAttitudeErrorToPitchRateGain,       1.0f),
+  
 
 	AP_GROUPEND
 };
@@ -706,12 +529,12 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
     {
         float attitudeErrorRoll = command.targetRollAttitude - _ahrs.get_roll();
         float attitudeErrorPitch = command.targetPitchAttitude - _ahrs.get_pitch();
-        float pitchAttitudeToPitchRateGain = 2.0;
-        float rollAttitudeToRollRateGain = 2.0;
+       // float pitchAttitudeToPitchRateGain = 2.0;
+        //float rollAttitudeToRollRateGain = 2.0;
         
 
-        float targetRollRate = attitudeErrorRoll * rollAttitudeToRollRateGain;
-        float targetPitchRate = attitudeErrorPitch * pitchAttitudeToPitchRateGain;
+        float targetRollRate = attitudeErrorRoll * rollAttitudeErrorToRollRateGain.get();
+        float targetPitchRate = attitudeErrorPitch * pitchAttitudeErrorToPitchRateGain.get(); //not sure if this is the right way to do this!
         
         desiredMomentX = _pid_rate_roll.update_all(targetRollRate,_ahrs.get_gyro().x, false);
         desiredMomentY = _pid_rate_pitch.update_all(targetPitchRate,_ahrs.get_gyro().y, false);
