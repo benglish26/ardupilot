@@ -11,21 +11,49 @@
 #include <AC_PID/AC_PID.h>
 #include <AC_PID/AC_P.h>
 
-#define AC_ATC_HELI_RATE_RP_P                       0.024f
-#define AC_ATC_HELI_RATE_RP_I                       0.6f
-#define AC_ATC_HELI_RATE_RP_D                       0.001f
-#define AC_ATC_HELI_RATE_RP_IMAX                    1.0f
-#define AC_ATC_HELI_RATE_RP_FF                      0.060f
-#define AC_ATC_HELI_RATE_RP_FILT_HZ                 20.0f
-#define AC_ATC_HELI_RATE_YAW_P                      0.18f
+#define AC_PID_ROLL_RATE_P                          0.2f
+#define AC_PID_ROLL_RATE_I                          0.0f
+#define AC_PID_ROLL_RATE_D                          0.02f
+#define AC_PID_ROLL_RATE_IMAX                       0.0f
+#define AC_PID_ROLL_RATE_FF                         0.060f
+#define AC_PID_ROLL_RATE_FILTER_T                   10.0f  //target filter
+#define AC_PID_ROLL_RATE_FILTER_E                   10.0f //error filter
+#define AC_PID_ROLL_RATE_FILTER_D                   0.0f //derivitive filter
+
+#define AC_PID_PITCH_RATE_P                          0.2f
+#define AC_PID_PITCH_RATE_I                          0.0f
+#define AC_PID_PITCH_RATE_D                          0.02f
+#define AC_PID_PITCH_RATE_IMAX                       0.0f
+#define AC_PID_PITCH_RATE_FF                         0.060f
+#define AC_PID_PITCH_RATE_FILTER_T                   10.0f  //target filter
+#define AC_PID_PITCH_RATE_FILTER_E                   10.0f //error filter
+#define AC_PID_PITCH_RATE_FILTER_D                   0.0f //derivitive filter
+
+#define AC_PID_YAW_RATE_P                          0.2f
+#define AC_PID_YAW_RATE_I                          0.0f
+#define AC_PID_YAW_RATE_D                          0.02f
+#define AC_PID_YAW_RATE_IMAX                       0.0f
+#define AC_PID_YAW_RATE_FF                         0.060f
+#define AC_PID_YAW_RATE_FILTER_T                   10.0f  //target filter
+#define AC_PID_YAW_RATE_FILTER_E                   10.0f //error filter
+#define AC_PID_YAW_RATE_FILTER_D                   0.0f //derivitive filter
+
+#define TEMP_DT                                     0.0025f
+
+/*#define AC_ATC_HELI_RATE_YAW_P                      0.18f
 #define AC_ATC_HELI_RATE_YAW_I                      0.12f
 #define AC_ATC_HELI_RATE_YAW_D                      0.003f
 #define AC_ATC_HELI_RATE_YAW_IMAX                   1.0f
 #define AC_ATC_HELI_RATE_YAW_FF                     0.024f
 #define AC_ATC_HELI_RATE_YAW_FILT_HZ                20.0f
 #define AC_ATTITUDE_HELI_RATE_RP_FF_FILTER          10.0f
-#define AC_ATTITUDE_HELI_RATE_Y_VFF_FILTER          10.0f
-#define TEMP_DT                                     0.0025f
+#define AC_ATTITUDE_HELI_RATE_Y_VFF_FILTER          10.0f*/
+
+
+
+#define CONTROLLER_STATE_REGULATOR_MODE_PASSTHROUGH 1
+#define CONTROLLER_STATE_REGULATOR_MODE_RATE 2
+#define CONTROLLER_STATE_REGULATOR_MODE_ATTITUDE 3
 
 struct EffectorList
 { 
@@ -39,6 +67,34 @@ struct EffectorList
 
     //TODO: add max/min and rates.
 };  
+
+struct ControllerState
+{
+    int regulatorMode; //1 = passthrough, 2 = rate command, 3 = attitude command
+    int commandMode; //0 = Manual vectored thrust.
+    int armedState; //0 = disarmed, 1 = armed.
+    //int usePolarTiltInput;
+    
+};
+
+struct CommandInput
+{
+    float targetPitchAttitude;
+    float targetRollAttitude;
+    float targetPitchRate;
+    float targetRollRate;
+    float targetYawRate;
+    float targetHeading;
+
+    float targetAccelerationZ;
+    float targetAccelerationX;
+    float targetTiltAngle;
+    float targetTiltAcceleration;
+    float passthroughAngularAccelerationRoll;
+    float passthroughAngularAccelerationPitch;
+    float passthroughAngularAccelerationYaw;
+
+};
 
 struct AircraftProperties
 { 
@@ -73,26 +129,26 @@ public:
     BTOL_Controller(AP_AHRS &ahrs, const AP_Vehicle::FixedWing &parms): 
     _ahrs(ahrs), 
     aparm(parms),
-    _pid_rate_roll(AC_ATC_HELI_RATE_RP_P, AC_ATC_HELI_RATE_RP_I, AC_ATC_HELI_RATE_RP_D, AC_ATC_HELI_RATE_RP_FF, AC_ATC_HELI_RATE_RP_IMAX, AC_ATTITUDE_HELI_RATE_RP_FF_FILTER, AC_ATC_HELI_RATE_RP_FILT_HZ, 0.0f, TEMP_DT),
-    _pid_rate_pitch(AC_ATC_HELI_RATE_RP_P, AC_ATC_HELI_RATE_RP_I, AC_ATC_HELI_RATE_RP_D, AC_ATC_HELI_RATE_RP_FF, AC_ATC_HELI_RATE_RP_IMAX, AC_ATTITUDE_HELI_RATE_RP_FF_FILTER, AC_ATC_HELI_RATE_RP_FILT_HZ, 0.0f, TEMP_DT),
-    _pid_rate_yaw(AC_ATC_HELI_RATE_YAW_P, AC_ATC_HELI_RATE_YAW_I, AC_ATC_HELI_RATE_YAW_D, AC_ATC_HELI_RATE_YAW_FF, AC_ATC_HELI_RATE_YAW_IMAX, AC_ATTITUDE_HELI_RATE_Y_VFF_FILTER, AC_ATC_HELI_RATE_YAW_FILT_HZ, 0.0f, TEMP_DT)
+    _pid_rate_roll(AC_PID_ROLL_RATE_P, AC_PID_ROLL_RATE_I, AC_PID_ROLL_RATE_D, AC_PID_ROLL_RATE_IMAX, AC_PID_ROLL_RATE_FF, AC_PID_ROLL_RATE_FILTER_T, AC_PID_ROLL_RATE_FILTER_E, AC_PID_ROLL_RATE_FILTER_D, TEMP_DT),
+    _pid_rate_pitch(AC_PID_PITCH_RATE_P, AC_PID_PITCH_RATE_I, AC_PID_PITCH_RATE_D, AC_PID_PITCH_RATE_IMAX, AC_PID_PITCH_RATE_FF, AC_PID_PITCH_RATE_FILTER_T, AC_PID_PITCH_RATE_FILTER_E, AC_PID_PITCH_RATE_FILTER_D, TEMP_DT),
+    _pid_rate_yaw(AC_PID_YAW_RATE_P, AC_PID_YAW_RATE_I, AC_PID_YAW_RATE_D, AC_PID_YAW_RATE_IMAX, AC_PID_YAW_RATE_FF, AC_PID_YAW_RATE_FILTER_T, AC_PID_YAW_RATE_FILTER_E, AC_PID_YAW_RATE_FILTER_D, TEMP_DT)
     {
         AP_Param::setup_object_defaults(this, var_info);
-        targetPitchAttitude = 0.0f;
-        targetRollAttitude = 0.0f;
-        targetPitchRate = 0.0f;
-        targetRollRate = 0.0f;
-        targetYawRate = 0.0f;
-        targetHeading = 0.0f;
+        command.targetPitchAttitude = 0.0f;
+        command.targetRollAttitude = 0.0f;
+        command.targetPitchRate = 0.0f;
+        command.targetRollRate = 0.0f;
+        command.targetYawRate = 0.0f;
+        command.targetHeading = 0.0f;
         pitchRateError = 0.0f;
         rollRateError = 0.0f;
         yawRateError = 0.0f;
 
-        targetAccelerationZ = 0.0f;
-        targetAccelerationX = 0.0f;
-        passthroughAngularAccelerationRoll = 0.0f;
-        passthroughAngularAccelerationPitch = 0.0f;
-        passthroughAngularAccelerationYaw = 0.0f;
+        command.targetAccelerationZ = 0.0f;
+        command.targetAccelerationX = 0.0f;
+        command.passthroughAngularAccelerationRoll = 0.0f;
+        command.passthroughAngularAccelerationPitch = 0.0f;
+        command.passthroughAngularAccelerationYaw = 0.0f;
 
         aircraftProperties.totalMass = 1.0;  //approximaton.  Make tuning parameter figure out actual value.
         aircraftProperties.momentOfInertiaPitch = 1.0;  //gross approximaton.  Make tuning parameter figure out actual value.
@@ -123,6 +179,10 @@ public:
         effectors.motor1Thrust = 0.0f;
         effectors.motor2Thrust = 0.0f;
         effectors.motor3Thrust = 0.0f;
+
+        state.regulatorMode = CONTROLLER_STATE_REGULATOR_MODE_RATE; //0 = none, 1 = passthrough, 2 = regulator on.
+        state.commandMode = 0; //0 = Manual vectored thrust.
+        state.armedState = 0; //0 = disarmed, 1 = armed.
     }
 
 
@@ -130,14 +190,26 @@ public:
     BTOL_Controller(const BTOL_Controller &other) = delete;
     BTOL_Controller &operator=(const BTOL_Controller&) = delete;
 
+    int getRegulatorModeState(void);
+    int setRegulatorModeState(int desiredState);
+    int getArmedState(void);
+    int setArmedState(int desiredState);
     void setDesiredPitchAttitude(float pitchAttitudeTarget);
     void setDesiredRollAttitude(float rollAttitudeTarget);
-    void setDesiredYawRate(float yawRateTarget);
+    //void setDesiredYawRate(float yawRateTarget);
     void setDesiredAccelerationBodyX(float aX);
     void setDesiredAccelerationBodyZ(float aZ);
-    void setDesiredPassthroughAngularAccelerationRoll(float waX);
-    void setDesiredPassthroughAngularAccelerationPitch(float waY);
-    void setDesiredPassthroughAngularAccelerationYaw(float waZ);
+    void setDesiredTiltAngle(float tiltAngle);
+    void setDesiredAccelerationAlongTiltAngle(float tiltAcceleration);
+
+    void setDesiredPassthroughAngularAccelerationRoll(float waX); //rad/s/s
+    void setDesiredPassthroughAngularAccelerationPitch(float waY); //rad/s/s
+    void setDesiredPassthroughAngularAccelerationYaw(float waZ); //rad/s/s
+    void setCommandedRollRate(float rollRate); //Rad/sec
+    void setCommandedPitchRate(float pitchRate); //Rad/sec
+    void setCommandedYawRate(float yawRate); //Rad/sec
+
+
     int16_t calculateServoValueFromAngle(float desiredAngle, float minimumAngle, float maximumAngle, int16_t minimumPWM, int16_t maximumPWM);
     float calculateMotorThrustBasedOnTiltAngle(float attainedTiltAngle, float desiredForceForward, float desiredForceUp, float satisfactionAngleLow, float satisfactionAngleHigh); //use this function carefully to avoid div/0!
 
@@ -189,22 +261,11 @@ private:
     AP_Float testValue4;
 
 
-    float targetPitchAttitude;
-    float targetRollAttitude;
-    float targetPitchRate;
-    float targetRollRate;
-    float targetYawRate;
-    float targetHeading;
-
     float pitchRateError;
     float rollRateError;
     float yawRateError;
 
-    float targetAccelerationZ;
-    float targetAccelerationX;
-    float passthroughAngularAccelerationRoll;
-    float passthroughAngularAccelerationPitch;
-    float passthroughAngularAccelerationYaw;
+
 
 
     //From sub attitude control code...
@@ -217,6 +278,8 @@ private:
 
     EffectorList effectors;
     AircraftProperties aircraftProperties;
+    ControllerState state;
+    CommandInput command;
 
     //AP_Logger::PID_Info _pid_info;
 

@@ -21,7 +21,7 @@ bool ModeBTOL::_enter()
    //MAV_SEVERITY_INFO=6, /* Normal operational messages. Useful for logging. No action is required for these messages. | */
    //MAV_SEVERITY_DEBUG=7, /* Useful non-operational messages that can assist in debugging. These should not occur during normal operation. | */
    //MAV_SEVERITY_ENUM_END=8, /*  | */
-   gcs().send_text(MAV_SEVERITY_INFO, "BTOL STARTED");// %5.3f", (double)3.142f);
+  // gcs().send_text(MAV_SEVERITY_INFO, "BTOL STARTED");// %5.3f", (double)3.142f);
    
 
     return true;

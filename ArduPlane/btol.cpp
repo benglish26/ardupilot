@@ -34,6 +34,8 @@ extern const AP_HAL::HAL& hal;
 #define RC_CHANNEL_NUMBER_FOR_YAW_STICK 3
 #define RC_CHANNEL_NUMBER_FOR_THROTTLE_STICK 2
 #define RC_CHANNEL_NUMBER_FOR_LEFT_SLIDER_STICK 6
+#define RC_CHANNEL_NUMBER_FOR_ARM_SWITCH CH_6  //2000us = forward, 1000us = aft.
+#define RC_CHANNEL_NUMBER_FOR_MODE_SWITCH CH_5  //2000us = forward, 1000us = aft.
 
 #define TILT1_SERVO_MIN_ANGLE 0.0f //radians
 #define TILT1_SERVO_MIN_ANGLE_PWM 2060  //PWM uS
@@ -44,6 +46,11 @@ extern const AP_HAL::HAL& hal;
 #define TILT2_SERVO_MIN_ANGLE_PWM 925 //PWM uS
 #define TILT2_SERVO_MAX_ANGLE 1.74533f //radians
 #define TILT2_SERVO_MAX_ANGLE_PWM 2070 //PWM uS
+#define THROTTLE_DISARMED_VALUE 1000 //PWM uS
+#define MTV_MAX_COMMANDABLE_TILT_ANGLE_IN_RADIANS 1.5708f
+#define MTV_MIN_COMMANDABLE_TILT_ANGLE_IN_RADIANS 0.0f
+#define MTV_MAX_COMMANDABLE_TILT_ACCELERATION_IN_MSS 20.0f
+#define MTV_MIN_COMMANDABLE_TILT_ACCELERATION_IN_MSS 0.0f
 
 //static float rcCommandInputPitchStickAft = 0;
 //static float rcCommandInputRollStickRight = 0;
@@ -281,13 +288,12 @@ void Plane::update_btol() {  //50Hz
     //take pilot input
     //get the rc input and map them to a range of -1.0 to +1.0;
     //TODO: Add in a something which zeros the values if the incoming raw signal is zero.
-    
-    
    float rcCommandInputPitchStickAft = 0;
    float rcCommandInputRollStickRight = 0;
    float rcCommandInputYawStickRight = 0;
    float rcCommandInputThrottleStickForward = 0;
    float rcCommandInputLeftSliderStickForward = 0;
+   //float rcCommandInputArmSwitch = 0;
     
     //need protections which set these to neutral values if the signal isn't present. TODO
     rcCommandInputPitchStickAft = constrain_float( ((float)hal.rcin->read(RC_CHANNEL_NUMBER_FOR_PITCH_STICK) - RC_CHANNEL_INPUT_CENTER_VALUE)/RC_CHANNEL_INPUT_HALF_RANGE, -1.0, 1.0);  //this should be a function, private
@@ -302,17 +308,66 @@ void Plane::update_btol() {  //50Hz
     float desiredForwardAccelerationComponent = (rcCommandInputLeftSliderStickForward) * MAX_BODY_AXIS_POWERED_ACCELERATION_COMMAND_MS;
     //need protections
     
-    //calculate pitch atttiude
-    Plane::btolController.setDesiredPitchAttitude(0.0f);
-    Plane::btolController.setDesiredRollAttitude(0.0f);
-    Plane::btolController.setDesiredYawRate(0.0f);
+
 
     Plane::btolController.setDesiredAccelerationBodyZ(desiredUpAccelerationComponent * -1.0);  //the -1.0 converts this into the +Z = down frame.  this (of course) needs work.
     Plane::btolController.setDesiredAccelerationBodyX(desiredForwardAccelerationComponent);  //this (of course) needs work.
 
+
+    float mtv_direct_command_tilt_angle = 0.0;
+    mtv_direct_command_tilt_angle = MTV_MIN_COMMANDABLE_TILT_ANGLE_IN_RADIANS + ((MTV_MAX_COMMANDABLE_TILT_ANGLE_IN_RADIANS-MTV_MIN_COMMANDABLE_TILT_ANGLE_IN_RADIANS) * ((1.0f * rcCommandInputLeftSliderStickForward + 1.0f) / 2.0f));
+    float mtv_direct_command_tilt_acceleration = 0.0;
+    mtv_direct_command_tilt_acceleration = MTV_MIN_COMMANDABLE_TILT_ACCELERATION_IN_MSS + ((MTV_MAX_COMMANDABLE_TILT_ACCELERATION_IN_MSS-MTV_MIN_COMMANDABLE_TILT_ACCELERATION_IN_MSS) * ((rcCommandInputThrottleStickForward + 1.0f) / 2.0f));
+   
+    Plane::btolController.setDesiredTiltAngle(mtv_direct_command_tilt_angle);
+    Plane::btolController.setDesiredAccelerationAlongTiltAngle(mtv_direct_command_tilt_acceleration);
+
+    
+    //calculate pitch atttiude
+    Plane::btolController.setDesiredPitchAttitude(rcCommandInputPitchStickAft * 0.5f);
+    Plane::btolController.setDesiredRollAttitude(rcCommandInputRollStickRight * 0.5f);
+    //Plane::btolController.setDesiredYawRate(0.0f);//heading rate...
+    
+    Plane::btolController.setCommandedPitchRate(rcCommandInputPitchStickAft * 1.0f); //TODO: temporary gain placeholders.
+    Plane::btolController.setCommandedRollRate(rcCommandInputRollStickRight * 1.0f);
+    Plane::btolController.setCommandedYawRate(rcCommandInputYawStickRight * 1.0f); 
+
     Plane::btolController.setDesiredPassthroughAngularAccelerationPitch(rcCommandInputPitchStickAft * 1.0f);
     Plane::btolController.setDesiredPassthroughAngularAccelerationRoll(rcCommandInputRollStickRight * 1.0f);
     Plane::btolController.setDesiredPassthroughAngularAccelerationYaw(rcCommandInputYawStickRight * 1.0f); //TODO: these are temporary gain placeholders.
+
+
+
+    //Todo: this should be a state machine.  This is a bit hacky, setting it every cycle.
+    if(hal.rcin->read(RC_CHANNEL_NUMBER_FOR_ARM_SWITCH) > 1600 && Plane::btolController.getArmedState() != 1)
+    {
+        Plane::btolController.setArmedState(1);
+        gcs().send_text(MAV_SEVERITY_CRITICAL, "BTOL ARMED");
+
+    }
+    else if(hal.rcin->read(RC_CHANNEL_NUMBER_FOR_ARM_SWITCH) < 1400 && Plane::btolController.getArmedState() != 0)
+    {
+        Plane::btolController.setArmedState(0);
+        gcs().send_text(MAV_SEVERITY_CRITICAL, "BTOL DISARMED");
+    }
+
+    int16_t modeSwitchValue = hal.rcin->read(RC_CHANNEL_NUMBER_FOR_MODE_SWITCH);
+
+    if(modeSwitchValue > 1700 && Plane::btolController.getRegulatorModeState() != CONTROLLER_STATE_REGULATOR_MODE_ATTITUDE)
+    {
+        Plane::btolController.setRegulatorModeState(CONTROLLER_STATE_REGULATOR_MODE_ATTITUDE);
+        gcs().send_text(MAV_SEVERITY_CRITICAL, "MODE ATTITUDE");
+    }
+    else if(modeSwitchValue > 1300 && modeSwitchValue < 1700 && Plane::btolController.getRegulatorModeState() != CONTROLLER_STATE_REGULATOR_MODE_RATE)
+    {
+        Plane::btolController.setRegulatorModeState(CONTROLLER_STATE_REGULATOR_MODE_RATE);
+        gcs().send_text(MAV_SEVERITY_CRITICAL, "MODE RATE");
+    }
+    else if (modeSwitchValue < 1300 && Plane::btolController.getRegulatorModeState() != CONTROLLER_STATE_REGULATOR_MODE_PASSTHROUGH)
+    {
+        Plane::btolController.setRegulatorModeState(CONTROLLER_STATE_REGULATOR_MODE_PASSTHROUGH);
+        gcs().send_text(MAV_SEVERITY_CRITICAL, "MODE PASS THROUGH");
+    }
 
     //calculate roll atttiude
 
@@ -341,16 +396,9 @@ void Plane::update_btol() {  //50Hz
    //hal.console->printf("test4");  //didn't work.
 
     //plane.steering_control.steering = plane.steering_control.rudder = plane.channel_rudder->get_control_in_zero_dz();
-
-    
-
-
-
 }
 
 void Plane::initialize_btol(){
-
-
     hal.rcout->set_default_rate(50);
     hal.rcout->enable_ch(CH_1);
     hal.rcout->enable_ch(CH_2);
@@ -440,10 +488,10 @@ void Plane::btol_stabilize() {
 
 
 
-    int16_t servoValueElevon1 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.elevon1Angle, -0.785398f, 0.785398f, 1000, 2000);
-    int16_t servoValueElevon2 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.elevon2Angle, -0.785398f, 0.785398f, 2000, 1000);
-    int16_t servoValueTilt1 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.tilt1Angle, TILT1_SERVO_MIN_ANGLE, TILT1_SERVO_MAX_ANGLE, TILT1_SERVO_MIN_ANGLE_PWM, TILT1_SERVO_MAX_ANGLE_PWM);
-    int16_t servoValueTilt2 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.tilt2Angle, TILT2_SERVO_MIN_ANGLE, TILT2_SERVO_MAX_ANGLE, TILT2_SERVO_MIN_ANGLE_PWM, TILT2_SERVO_MAX_ANGLE_PWM);
+    int16_t servoControlValueElevon1 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.elevon1Angle, -0.785398f, 0.785398f, 1000, 2000);
+    int16_t servoControlValueElevon2 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.elevon2Angle, -0.785398f, 0.785398f, 2000, 1000);
+    int16_t servoControlValueTilt1 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.tilt1Angle, TILT1_SERVO_MIN_ANGLE, TILT1_SERVO_MAX_ANGLE, TILT1_SERVO_MIN_ANGLE_PWM, TILT1_SERVO_MAX_ANGLE_PWM);
+    int16_t servoControlValueTilt2 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.tilt2Angle, TILT2_SERVO_MIN_ANGLE, TILT2_SERVO_MAX_ANGLE, TILT2_SERVO_MIN_ANGLE_PWM, TILT2_SERVO_MAX_ANGLE_PWM);
     //int16_t servoValueTilt1 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.tilt1Angle, 0.0f, 1.74533f, 2000, 1000);
     //int16_t servoValueTilt2 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.tilt2Angle, 0.0f, 1.74533f, 1000, 2000);
 
@@ -456,60 +504,112 @@ void Plane::btol_stabilize() {
 
     //starting out expecting values from 0.0 to +1.0
     //need to convert motor thrust to ESC commands using some scalar...ie: from newtons to scalar 0.0 to 1.0
-    int16_t servoValueMotor1 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor1Thrust / MOTOR_1_MAX_THRUST_N ) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE); //this needs to be scaled and offset correctly TODO
-    int16_t servoValueMotor2 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor2Thrust / MOTOR_2_MAX_THRUST_N )* MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);
-    int16_t servoValueMotor3 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor3Thrust / MOTOR_3_MAX_THRUST_N ) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);  //isn't working.  Is stuck at 2000.
+    int16_t servoControlValueMotor1 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor1Thrust / MOTOR_1_MAX_THRUST_N ) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE); //this needs to be scaled and offset correctly TODO
+    int16_t servoControlValueMotor2 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor2Thrust / MOTOR_2_MAX_THRUST_N )* MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);
+    int16_t servoControlValueMotor3 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor3Thrust / MOTOR_3_MAX_THRUST_N ) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);  //isn't working.  Is stuck at 2000.
+
+
+    if(Plane::btolController.getArmedState() != 1)
+    {
+        servoControlValueMotor1 = THROTTLE_DISARMED_VALUE;
+        servoControlValueMotor2 = THROTTLE_DISARMED_VALUE;
+        servoControlValueMotor3 = THROTTLE_DISARMED_VALUE;
+    }
+
+
 //Need to put more protections!  better than above.
 //consider swapping the order so the motors can be in the first 4 if needed to get 400Hz update rate.
     hal.rcout->cork();  //  SRV_Channels::cork();
-    hal.rcout->write(CH_1, servoValueElevon1);
-    hal.rcout->write(CH_2, servoValueElevon2);  //not working...perhaps base zero??
-    hal.rcout->write(CH_3, servoValueTilt1);
-    hal.rcout->write(CH_4, servoValueTilt2);
+    hal.rcout->write(CH_1, servoControlValueElevon1);
+    hal.rcout->write(CH_2, servoControlValueElevon2);  //not working...perhaps base zero??
+    hal.rcout->write(CH_3, servoControlValueTilt1);
+    hal.rcout->write(CH_4, servoControlValueTilt2);
     hal.rcout->write(CH_5, servoControlValue5);
-    hal.rcout->write(CH_6, servoValueMotor1);
-    hal.rcout->write(CH_7, servoValueMotor2);
-    hal.rcout->write(CH_8, servoValueMotor3);
+    hal.rcout->write(CH_6, servoControlValueMotor1);
+    hal.rcout->write(CH_7, servoControlValueMotor2);
+    hal.rcout->write(CH_8, servoControlValueMotor3);
     hal.rcout->push();  //will need to use: SRV_Channels::push(); or parts of it when we use BL Heli or D-shot!
 }
 
+int BTOL_Controller::getRegulatorModeState(void)
+{
+    return state.regulatorMode;
+}
+int BTOL_Controller::setRegulatorModeState(int desiredState)
+{
+    state.regulatorMode = desiredState;
+    return state.regulatorMode;
+}
 
+int BTOL_Controller::getArmedState(void)
+{
+    return state.armedState;
+}
+int BTOL_Controller::setArmedState(int desiredState)
+{
+    //Todo: check for validity of input.
+    state.armedState = desiredState;
+    return state.armedState;
+}
 void BTOL_Controller::setDesiredPitchAttitude(float pitchAttitudeTarget)
 {
     //constrain
-    targetPitchAttitude = pitchAttitudeTarget;
+    command.targetPitchAttitude = pitchAttitudeTarget;
 }
 void BTOL_Controller::setDesiredRollAttitude(float rollAttitudeTarget)
 {
     //constrain
-    targetRollAttitude = rollAttitudeTarget;
+    command.targetRollAttitude = rollAttitudeTarget;
 }
-void BTOL_Controller::setDesiredYawRate(float yawRateTarget)
-{
+//void BTOL_Controller::setDesiredYawRate(float yawRateTarget)
+//{
     //constrain
-    targetYawRate = yawRateTarget;
+  //  command.targetYawRate = yawRateTarget;
+//}
+
+
+void BTOL_Controller::setDesiredTiltAngle(float tiltAngle)
+{
+    command.targetTiltAngle = tiltAngle;
+}
+void BTOL_Controller::setDesiredAccelerationAlongTiltAngle(float tiltAcceleration)
+{
+    command.targetTiltAcceleration = tiltAcceleration;
 }
 
 void BTOL_Controller::setDesiredAccelerationBodyX(float aX)
 {
-    targetAccelerationX = aX;
+    command.targetAccelerationX = aX;
 }
 void BTOL_Controller::setDesiredAccelerationBodyZ(float aZ)
 {
-    targetAccelerationZ = aZ;
+    command.targetAccelerationZ = aZ;
 }
 
 void BTOL_Controller::setDesiredPassthroughAngularAccelerationRoll(float waX)
 {
-         passthroughAngularAccelerationRoll = waX;
+    command.passthroughAngularAccelerationRoll = waX;
 }
 void BTOL_Controller::setDesiredPassthroughAngularAccelerationPitch(float waY)
 {
-        passthroughAngularAccelerationPitch = waY;
+    command.passthroughAngularAccelerationPitch = waY;
 }
 void BTOL_Controller::setDesiredPassthroughAngularAccelerationYaw(float waZ)
 {
-        passthroughAngularAccelerationYaw = waZ;
+    command.passthroughAngularAccelerationYaw = waZ;
+}
+
+void BTOL_Controller::setCommandedRollRate(float rollRate)
+{
+    command.targetRollRate = rollRate;
+}
+void BTOL_Controller::setCommandedPitchRate(float pitchRate)
+{
+    command.targetPitchRate = pitchRate;
+}
+void BTOL_Controller::setCommandedYawRate(float yawRate)
+{
+    command.targetYawRate = yawRate;
 }
 
 int16_t BTOL_Controller::calculateServoValueFromAngle(float desiredAngle, float minimumAngle, float maximumAngle, int16_t minimumPWM, int16_t maximumPWM)
@@ -568,24 +668,100 @@ int16_t BTOL_Controller::calculateServoValueFromAngle(float desiredAngle, float 
 
 EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
 {
-    //get rate errors
-        rollRateError = targetRollRate - _ahrs.get_gyro().x;  //roll
-        pitchRateError = targetPitchRate - _ahrs.get_gyro().y;  //pitch
-        yawRateError = targetYawRate - _ahrs.get_gyro().z;  //yaw
+
+        //get rate errors //this is just the command input without stability on...
+       // rollRateError = command.targetRollRate - _ahrs.get_gyro().x;  //roll
+       // pitchRateError = command.targetPitchRate - _ahrs.get_gyro().y;  //pitch
+        //yawRateError = command.targetYawRate - _ahrs.get_gyro().z;  //yaw
+
+
+  //  float pilotRollRateContribution = command.targetRollRate;
+  //  float pilotPitchRateContribution = command.targetPitchRate;
+  //  float pilotYawRateContribution = command.targetYawRate;
+
+  //  float attitudeStabilizationRollRateContribution = 0.0f;
+  //  float attitudeStabilizationPitchRateContribution = 0.0f;
+  //  float attitudeStabilizationYawRateContribution = 0.0f;
+
+
+
+    
+    //float targetRollRate = pilotRollRateContribution + attitudeStabilizationRollRateContribution; //this can be done more explicitly...but lets KISS for now.
+   // float targetPitchRate = pilotPitchRateContribution + attitudeStabilizationPitchRateContribution; //this can be done more explicitly...but lets KISS for now.
+   // float targetYawRate = pilotYawRateContribution + attitudeStabilizationYawRateContribution; //this can be done more explicitly...but lets KISS for now.
+
+  //  rollRateError = targetRollRate - _ahrs.get_gyro().x;  //roll
+   // pitchRateError = targetPitchRate - _ahrs.get_gyro().y;  //pitch
+   // yawRateError = targetYawRate - _ahrs.get_gyro().z;  //yaw
+
+    //now do some regulator stuff!
+
+    float desiredMomentX = 0.0f;
+    float desiredMomentY = 0.0f;
+    float desiredMomentZ = 0.0f;
+
+    //_pid_rate_roll.update_error();
+
+    if(state.regulatorMode == CONTROLLER_STATE_REGULATOR_MODE_ATTITUDE)
+    {
+        float attitudeErrorRoll = command.targetRollAttitude - _ahrs.get_roll();
+        float attitudeErrorPitch = command.targetPitchAttitude - _ahrs.get_pitch();
+        float pitchAttitudeToPitchRateGain = 2.0;
+        float rollAttitudeToRollRateGain = 2.0;
+        
+
+        float targetRollRate = attitudeErrorRoll * rollAttitudeToRollRateGain;
+        float targetPitchRate = attitudeErrorPitch * pitchAttitudeToPitchRateGain;
+        
+        desiredMomentX = _pid_rate_roll.update_all(targetRollRate,_ahrs.get_gyro().x, false);
+        desiredMomentY = _pid_rate_pitch.update_all(targetPitchRate,_ahrs.get_gyro().y, false);
+        desiredMomentZ = _pid_rate_yaw.update_all(command.targetYawRate,_ahrs.get_gyro().z, false);
+
+    }
+
+    if(state.regulatorMode == CONTROLLER_STATE_REGULATOR_MODE_RATE)
+    {
+        desiredMomentX = _pid_rate_roll.update_all(command.targetRollRate,_ahrs.get_gyro().x, false);
+        desiredMomentY = _pid_rate_pitch.update_all(command.targetPitchRate,_ahrs.get_gyro().y, false);
+        desiredMomentZ = _pid_rate_yaw.update_all(command.targetYawRate,_ahrs.get_gyro().z, false);
+
+    }
+
+
+    //_pid_rate_roll.set_actual_rate(_ahrs.get_gyro().x);
+    //_pid_rate_roll.get_ff();
+
+    
+
 
     //calculate desired moments
         //calculate reponse to the rate errors.
-        float desiredMomentX = 0.0f;
-        float desiredMomentY = 0.0f;
-        float desiredMomentZ = 0.0f;
-        desiredMomentX = passthroughAngularAccelerationRoll * aircraftProperties.momentOfInertiaRoll; //passthrough to start to help build effector blender.
-        desiredMomentY = passthroughAngularAccelerationPitch * aircraftProperties.momentOfInertiaPitch;
-        desiredMomentZ = passthroughAngularAccelerationYaw * aircraftProperties.momentOfInertiaYaw;
+
+        //overwrite values if in passthrough test mode.
+        if(state.regulatorMode == CONTROLLER_STATE_REGULATOR_MODE_PASSTHROUGH)
+        {
+            desiredMomentX = command.passthroughAngularAccelerationRoll * aircraftProperties.momentOfInertiaRoll; //passthrough to start to help build effector blender.
+            desiredMomentY = command.passthroughAngularAccelerationPitch * aircraftProperties.momentOfInertiaPitch;
+            desiredMomentZ = command.passthroughAngularAccelerationYaw * aircraftProperties.momentOfInertiaYaw;
+        }
         
         
     //calculate desired forces
-        float desiredAccelerationZ = targetAccelerationZ;  //Right now commanded directly by pilot
-        float desiredAccelerationX = targetAccelerationX;  //Right now commanded directly by pilot
+    float desiredAccelerationZ = 0.0f;
+    float desiredAccelerationX = 0.0f;
+        if(state.commandMode == 0) //manual tilt angle
+        {
+            //calculate vector components based on tilt and thrust
+            desiredAccelerationZ = -1.0 * sinf(command.targetTiltAngle) * command.targetTiltAcceleration; //vertical component in body frame. (+Z = down)
+            desiredAccelerationX =  cosf(command.targetTiltAngle) * command.targetTiltAcceleration; //longitudinal component in body frame. (+X = forward)
+            
+        }else{
+            //take target accelerations already vectorized and use those.
+            desiredAccelerationZ = command.targetAccelerationZ;  //Right now commanded directly by pilot
+            desiredAccelerationX = command.targetAccelerationX;  //Right now commanded directly by pilot
+        }
+
+        
         float requiredForceZ = desiredAccelerationZ * aircraftProperties.totalMass; //Newtons
         float requiredForceX = desiredAccelerationX * aircraftProperties.totalMass; //Newtons
 
@@ -660,11 +836,11 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         float idealTilt1Angle = 0.0f; //0 is forward, 90degrees (this is radians) is up.
         float tiltCalculationMotor1ForceUp = forceUpMotor1;
         float tiltCalculationMotor1ForceForward = forceForwardMotor1;
-        #define TILT_CALCULATION_MOTOR_UP_FORCE_MIN_VALUE 0.01f  //this should only happen when there are small numbers to deal with, ie when the total trust magniude is low...
+        /*#define TILT_CALCULATION_MOTOR_UP_FORCE_MIN_VALUE 0.01f  //this should only happen when there are small numbers to deal with, ie when the total trust magniude is low.....this to make the tilts want to point up.  There is a better way.  TODO:
         if(tiltCalculationMotor1ForceUp < TILT_CALCULATION_MOTOR_UP_FORCE_MIN_VALUE)
         {
             tiltCalculationMotor1ForceUp = TILT_CALCULATION_MOTOR_UP_FORCE_MIN_VALUE;
-        }
+        }*/
 
         idealTilt1Angle = atan2f(tiltCalculationMotor1ForceUp, tiltCalculationMotor1ForceForward);
 
@@ -675,6 +851,15 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         float motor1ForceDemand = 0.0;
         #define TILT_SATISFACTION_ANGLE_LOW 0.174533f
         #define TILT_SATISFACTION_ANGLE_HIGH 1.309f
+        #define TILT_ANGLE_CONSTRAINT_FROM_COLLECTIVE_TILT_ANGLE_GAIN_RAD_PER_MSS 0.1f //*10m/s/s = 1.0 rad which is about 57deg
+        float maxConstrainedIndividualTiltAngleDelta = TILT_ANGLE_CONSTRAINT_FROM_COLLECTIVE_TILT_ANGLE_GAIN_RAD_PER_MSS * command.targetTiltAcceleration + 0.1f; //allow some movement at no throttle.
+        float maxConstrainedIndividualTiltAngleMax = command.targetTiltAngle + maxConstrainedIndividualTiltAngleDelta;
+        float maxConstrainedIndividualTiltAngleMin = command.targetTiltAngle - maxConstrainedIndividualTiltAngleDelta;
+        tilt1Angle = constrain_float(tilt1Angle, maxConstrainedIndividualTiltAngleMin, maxConstrainedIndividualTiltAngleMax);
+        //#define TILT_ANGLE_MAX_DELTA_FROM_COLLECTIVE_TILT_ANGLE...this doesn't work because of the contribution from the tail motor...
+        //lets make it a large value which is enough to keep the motors from hitting the ground at low thrust values.
+
+
 
         //TODO: individual tilts shouldn't be making full decisions.  look at collective values.
 
@@ -709,16 +894,16 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         float tiltCalculationMotor2ForceUp = forceUpMotor2;
         float tiltCalculationMotor2ForceForward = forceForwardMotor2;
         //#define TILT_CALCULATION_MOTOR_UP_FORCE_MIN_VALUE 0.2  //this should only happen when there are small numbers to deal with, ie when the total trust magniude is low...
-        if(tiltCalculationMotor2ForceUp < TILT_CALCULATION_MOTOR_UP_FORCE_MIN_VALUE)
-        {
-            tiltCalculationMotor2ForceUp = TILT_CALCULATION_MOTOR_UP_FORCE_MIN_VALUE;
-        }
+     //   if(tiltCalculationMotor2ForceUp < TILT_CALCULATION_MOTOR_UP_FORCE_MIN_VALUE)
+     //   {
+      //      tiltCalculationMotor2ForceUp = TILT_CALCULATION_MOTOR_UP_FORCE_MIN_VALUE;
+       // }
 
         idealTilt2Angle = atan2f(tiltCalculationMotor2ForceUp, tiltCalculationMotor2ForceForward);
 
         float tilt2Angle = 0.0f;
         tilt2Angle = constrain_float(idealTilt2Angle, TILT1_SERVO_MIN_ANGLE, TILT2_SERVO_MAX_ANGLE);
-        
+        tilt2Angle = constrain_float(tilt2Angle, maxConstrainedIndividualTiltAngleMin, maxConstrainedIndividualTiltAngleMax);
         float motor2ForceDemand = 0.0;
         //todo: make this into a function!
 
