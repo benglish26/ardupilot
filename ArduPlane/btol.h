@@ -71,6 +71,19 @@
 #define CONTROLLER_STATE_REGULATOR_MODE_RATE 2
 #define CONTROLLER_STATE_REGULATOR_MODE_ATTITUDE 3
 
+#define AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MIN_ANGLE -0.506f //Radians.
+#define AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MIN_ANGLE_PWM 1000  //PWM uS
+#define AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MAX_ANGLE 0.506f  //radians
+#define AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MAX_ANGLE_PWM 1950 //PWM uS
+
+#define AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MIN_ANGLE -0.506f //Radians.
+#define AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MIN_ANGLE_PWM 2000  //PWM uS
+#define AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MAX_ANGLE 0.506f  //radians
+#define AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MAX_ANGLE_PWM 1050 //PWM uS
+
+#define AIRCRAFT_PROPERTIES_ELEVON_AREA_M2 0.006847f
+
+
 struct EffectorList
 { 
     float motor1Thrust; //Newtons
@@ -134,6 +147,13 @@ struct AircraftProperties
     float centerOfMassLocationY;
     float centerOfMassLocationZ;
 
+    float elevon1LocationX;
+    float elevon1LocationY;
+
+    float elevon2LocationX;
+    float elevon2LocationY;
+
+
 
     //TODO: add max/min and rates.
 };  
@@ -188,6 +208,12 @@ public:
         aircraftProperties.centerOfMassLocationY = 0.0f;
         aircraftProperties.centerOfMassLocationZ = 0.0f;
 
+        aircraftProperties.elevon1LocationX = -0.14512f;
+        aircraftProperties.elevon1LocationY = -0.1802f;
+
+        aircraftProperties.elevon2LocationX = -0.14512f;
+        aircraftProperties.elevon2LocationY =  0.1802f;
+
         effectors.elevon1Angle = 0.0f;
         effectors.elevon2Angle = 0.0f;
         effectors.tilt1Angle = 0.0f;
@@ -225,6 +251,10 @@ public:
     void setCommandedPitchRate(float pitchRate); //Rad/sec
     void setCommandedYawRate(float yawRate); //Rad/sec
 
+    float getEstimatedDynamicPressure(void);
+    float getInferredDynamicPressureFromTransitionRatio(float inferredTransitionRatio, float dynamicPressureAtTopOfTransition);
+    float getInferredTransitionRatio(float verticalComponentOfAcceleration,  float verticalAccelerationThresholdForHover); //1.0 = transitioned, 0.0 = hover
+    float getControlSurfaceForce(float deflectionAngleInRadians, float areaInM2, float dynamicPressureInPa);
 
     int16_t calculateServoValueFromAngle(float desiredAngle, float minimumAngle, float maximumAngle, int16_t minimumPWM, int16_t maximumPWM);
     float calculateMotorThrustBasedOnTiltAngle(float attainedTiltAngle, float desiredForceForward, float desiredForceUp, float satisfactionAngleLow, float satisfactionAngleHigh); //use this function carefully to avoid div/0!
@@ -259,6 +289,9 @@ public:
     AP_Float &getMotor12MaxThrust(void) { return motor12MaxThrust; } 
     AP_Float &getMotor3MaxThrust(void) { return motor3MaxThrust; } 
 
+    AP_Float &getTopOfTransitionDynamicPressure(void) { return topOfTransitionDynamicPressure; } 
+    AP_Float &getVerticalAccelerationThresholdToConsiderAircraftInHover(void) { return verticalAccelerationThresholdToConsiderAircraftInHover; } 
+
     // pid accessors
     AC_PID &get_rate_roll_pid() { return _pid_rate_roll; } //don't know what this does or why we need it.
     AC_PID &get_rate_pitch_pid() { return _pid_rate_pitch; }
@@ -279,6 +312,8 @@ private:
     AP_Float rollAttitudeErrorToRollRateGain;
     AP_Float pitchAttitudeErrorToPitchRateGain;
     AP_Float manualTiltCommandMappingPolarity;
+    AP_Float topOfTransitionDynamicPressure;
+    AP_Float verticalAccelerationThresholdToConsiderAircraftInHover;
 
 
     float pitchRateError;

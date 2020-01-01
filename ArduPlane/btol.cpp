@@ -41,6 +41,17 @@ extern const AP_HAL::HAL& hal;
 #define TILT1_SERVO_MIN_ANGLE_PWM 2060  //PWM uS
 #define TILT1_SERVO_MAX_ANGLE 1.74533f  //radians
 #define TILT1_SERVO_MAX_ANGLE_PWM 925 //PWM uS
+/*
+#define ELEVON1_SERVO_MIN_ANGLE -0.506f //Radians.
+#define ELEVON1_SERVO_MIN_ANGLE_PWM 1000  //PWM uS
+#define ELEVON1_SERVO_MAX_ANGLE 0.506f  //radians
+#define ELEVON1_SERVO_MAX_ANGLE_PWM 1950 //PWM uS
+
+#define ELEVON2_SERVO_MIN_ANGLE -0.506f //Radians.
+#define ELEVON2_SERVO_MIN_ANGLE_PWM 2000  //PWM uS
+#define ELEVON2_SERVO_MAX_ANGLE 0.506f  //radians
+#define ELEVON2_SERVO_MAX_ANGLE_PWM 1050 //PWM uS
+*/
 
 #define TILT2_SERVO_MIN_ANGLE 0.0f //radians
 #define TILT2_SERVO_MIN_ANGLE_PWM 925 //PWM uS
@@ -54,6 +65,8 @@ extern const AP_HAL::HAL& hal;
 
 #define MOTOR_12_DEFAULT_MAX_THRUST_N 7.0f//8.0
 #define MOTOR_3_DEFAULT_MAX_THRUST_N 3.0f//3.0f
+#define TOP_OF_TRANSITION_DEFAULT_DYNAMIC_PRESSURE 200.0f //N/m^2 or Pa
+#define DEFAULT_VERTICAL_ACCELERATION_THRESHOLD_TO_CONSIDER_AIRCRAFT_IN_HOVER -8.0f //m/s/s
 
 //static float rcCommandInputPitchStickAft = 0;
 //static float rcCommandInputRollStickRight = 0;
@@ -109,6 +122,8 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
 
     AP_GROUPINFO("M12_MXTRST",        11, BTOL_Controller, motor12MaxThrust,        MOTOR_12_DEFAULT_MAX_THRUST_N),
     AP_GROUPINFO("M3_MXTHRST",        12, BTOL_Controller, motor3MaxThrust,        MOTOR_3_DEFAULT_MAX_THRUST_N),
+    AP_GROUPINFO("TOP_TRAN_Q",        13, BTOL_Controller, topOfTransitionDynamicPressure,        TOP_OF_TRANSITION_DEFAULT_DYNAMIC_PRESSURE),
+    AP_GROUPINFO("HOV_AC_THR",        14, BTOL_Controller, verticalAccelerationThresholdToConsiderAircraftInHover,        DEFAULT_VERTICAL_ACCELERATION_THRESHOLD_TO_CONSIDER_AIRCRAFT_IN_HOVER),
 
 
 	AP_GROUPEND
@@ -319,21 +334,14 @@ void Plane::btol_stabilize() {
     EffectorList effectorCommands;
     effectorCommands = g2.btolController.calculateEffectorPositions( PID_400HZ_DT); //this delta time is wrong, of course!  Should be dynamicly populated.
 
-    //int16_t servoControlValue1 = SERVO_CONTROL_CENTER_VALUE + constrain_int16(int16_t(effectorCommands.elevon1Angle * 500), -500, 500);
-    //int16_t servoControlValue2 = SERVO_CONTROL_CENTER_VALUE + constrain_int16(int16_t(effectorCommands.elevon2Angle * 500), -500, 500);
-    //int16_t servoControlValue3 = 1000 + constrain_int16(int16_t(effectorCommands.tilt1Angle * 500), 0, 1000); //TODO: quick test.
-    //int16_t servoControlValue4 = 1000 + constrain_int16(int16_t(effectorCommands.tilt2Angle * 500), 0, 1000);
 
 
-
-
-
-    int16_t servoControlValueElevon1 = g2.btolController.calculateServoValueFromAngle(effectorCommands.elevon1Angle, -0.785398f, 0.785398f, 1000, 2000);
-    int16_t servoControlValueElevon2 = g2.btolController.calculateServoValueFromAngle(effectorCommands.elevon2Angle, -0.785398f, 0.785398f, 2000, 1000);
+    //int16_t servoControlValueElevon1 = g2.btolController.calculateServoValueFromAngle(effectorCommands.elevon1Angle, -0.785398f, 0.785398f, 1000, 2000);
+    //int16_t servoControlValueElevon2 = g2.btolController.calculateServoValueFromAngle(effectorCommands.elevon2Angle, -0.785398f, 0.785398f, 2000, 1000);
+    int16_t servoControlValueElevon1 = g2.btolController.calculateServoValueFromAngle(effectorCommands.elevon1Angle, AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MIN_ANGLE, AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MAX_ANGLE, AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MIN_ANGLE_PWM, AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MAX_ANGLE_PWM);
+    int16_t servoControlValueElevon2 = g2.btolController.calculateServoValueFromAngle(effectorCommands.elevon2Angle, AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MIN_ANGLE, AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MAX_ANGLE, AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MIN_ANGLE_PWM, AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MAX_ANGLE_PWM);
     int16_t servoControlValueTilt1 = g2.btolController.calculateServoValueFromAngle(effectorCommands.tilt1Angle, TILT1_SERVO_MIN_ANGLE, TILT1_SERVO_MAX_ANGLE, TILT1_SERVO_MIN_ANGLE_PWM, TILT1_SERVO_MAX_ANGLE_PWM);
     int16_t servoControlValueTilt2 = g2.btolController.calculateServoValueFromAngle(effectorCommands.tilt2Angle, TILT2_SERVO_MIN_ANGLE, TILT2_SERVO_MAX_ANGLE, TILT2_SERVO_MIN_ANGLE_PWM, TILT2_SERVO_MAX_ANGLE_PWM);
-    //int16_t servoValueTilt1 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.tilt1Angle, 0.0f, 1.74533f, 2000, 1000);
-    //int16_t servoValueTilt2 = Plane::btolController.calculateServoValueFromAngle(effectorCommands.tilt2Angle, 0.0f, 1.74533f, 1000, 2000);
 
     #define MOTOR_CONTROL_MIN_VALUE 1000
     #define MOTOR_CONTROL_MAX_VALUE 2000
@@ -370,6 +378,82 @@ void Plane::btol_stabilize() {
     hal.rcout->write(CH_8, servoControlValueMotor3);
     hal.rcout->push();  //will need to use: SRV_Channels::push(); or parts of it when we use BL Heli or D-shot!
 }
+
+
+float BTOL_Controller::getControlSurfaceForce(float deflectionAngleInRadians, float areaInM2, float dynamicPressureInPa)
+{
+    float controlSurfaceForce = 0.0;
+
+    //TODO: Improve this!  Using lift equation...or pressure equation?  ....needs improvement!
+    float controlSurfaceCl = 0.0;
+    controlSurfaceCl = deflectionAngleInRadians * 2.0f; //standin!..need to make this approximation better!  TODO!!
+    controlSurfaceForce = dynamicPressureInPa * controlSurfaceCl * areaInM2;
+
+    return controlSurfaceForce;
+}
+
+
+float BTOL_Controller::getEstimatedDynamicPressure(void)
+{
+    //first, lets look at the vertical component of thrust and infer dynamic pressure.
+    float tiltThrustCommandedVerticalAccelerationZ = -1.0f * command.targetTiltAcceleration * sinf(command.targetTiltAngle);
+    
+    float transitionRatio = getInferredTransitionRatio(tiltThrustCommandedVerticalAccelerationZ, verticalAccelerationThresholdToConsiderAircraftInHover.get());
+    float estimatedDynamicPressure = getInferredDynamicPressureFromTransitionRatio(transitionRatio, topOfTransitionDynamicPressure);
+
+    //TODO: filter this!!!
+
+    return estimatedDynamicPressure;
+}
+
+float BTOL_Controller::getInferredTransitionRatio(float verticalComponentOfAcceleration, float verticalAccelerationThresholdForHover) //test
+{
+    //float accelerationDueToGravity = 9.81;
+    //using body axis, because that's what the pilot has control over.
+    //"UP" direction is negative in the body frame coordinate system.
+
+    float hoverAccelerationDueToGravity = -9.0;//-9.81;
+    if(verticalAccelerationThresholdForHover < -2.0f && verticalAccelerationThresholdForHover > -12.0f) //chec for Div 0 and polarity
+    {
+        hoverAccelerationDueToGravity = verticalAccelerationThresholdForHover;
+    }
+
+    float ratioOfThrustToWeight = verticalComponentOfAcceleration / hoverAccelerationDueToGravity;
+    constrain_float(ratioOfThrustToWeight, 0.0f, 1.0f);
+    //do we want to put a buffer here?  ie: some margin on the hover end?  ie: thrust to 
+    //acceleraiton consider us in hover? so we can conver the normal operating case where the thrust is less than the weight but we are in hover?
+    float wingLiftToPropThrustRatio = 1.0f - ratioOfThrustToWeight;
+
+    return wingLiftToPropThrustRatio;
+}
+
+//should add some hysteresis on the low end...
+float BTOL_Controller::getInferredDynamicPressureFromTransitionRatio(float inferredTransitionRatio, float dynamicPressureAtTopOfTransition)
+{
+    float bottomOfTransitionDynamicPressure = 0;
+    float inferredDynamicPressure = 0.0;
+
+    //verticalComponentOfAcceleration = constrain_float(verticalComponentOfAcceleration, 0.0, accelerationDueToGravity);
+
+   // float ratioOfThrustToWeight = verticalComponentOfAcceleration / accelerationDueToGravity;
+  //  constrain_float(ratioOfThrustToWeight, 0.0f, 1.0f);
+  //  float wingLiftRatio = 1.0f - ratioOfThrustToWeight;
+
+    inferredDynamicPressure = bottomOfTransitionDynamicPressure + inferredTransitionRatio * (dynamicPressureAtTopOfTransition - bottomOfTransitionDynamicPressure);
+    //Cap high end of inferred dynamic pressure.
+    if(inferredDynamicPressure > dynamicPressureAtTopOfTransition)
+    {
+        inferredDynamicPressure = dynamicPressureAtTopOfTransition;
+    }
+    //Cap low end of inferred dynamic pressure.
+    if(inferredDynamicPressure < bottomOfTransitionDynamicPressure)
+    {
+        inferredDynamicPressure = bottomOfTransitionDynamicPressure;
+    }
+
+    return inferredDynamicPressure;
+}
+
 
 int BTOL_Controller::getRegulatorModeState(void)
 {
@@ -522,9 +606,6 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
   //  float attitudeStabilizationRollRateContribution = 0.0f;
   //  float attitudeStabilizationPitchRateContribution = 0.0f;
   //  float attitudeStabilizationYawRateContribution = 0.0f;
-
-
-
     
     //float targetRollRate = pilotRollRateContribution + attitudeStabilizationRollRateContribution; //this can be done more explicitly...but lets KISS for now.
    // float targetPitchRate = pilotPitchRateContribution + attitudeStabilizationPitchRateContribution; //this can be done more explicitly...but lets KISS for now.
@@ -533,6 +614,10 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
   //  rollRateError = targetRollRate - _ahrs.get_gyro().x;  //roll
    // pitchRateError = targetPitchRate - _ahrs.get_gyro().y;  //pitch
    // yawRateError = targetYawRate - _ahrs.get_gyro().z;  //yaw
+
+    //desiredAccelerationZ = command.targetAccelerationZ;  //Right now commanded directly by pilot
+
+    float dynamicPressure = getEstimatedDynamicPressure();
 
     //now do some regulator stuff!
 
@@ -548,7 +633,6 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         float attitudeErrorPitch = command.targetPitchAttitude - _ahrs.get_pitch();
        // float pitchAttitudeToPitchRateGain = 2.0;
         //float rollAttitudeToRollRateGain = 2.0;
-        
 
         float targetRollRate = attitudeErrorRoll * rollAttitudeErrorToRollRateGain.get(); //this could be an issue, also.  TODO
         float targetPitchRate = attitudeErrorPitch * pitchAttitudeErrorToPitchRateGain.get(); //not sure if this is the right way to do this!
@@ -613,17 +697,121 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
     //calculate effector outputs
 
         //control surfaces...quick test 
-        //trailing edge which direction?
+        //Trailing edge up is positive.
+
         float elevon1Angle = 0.0f; //there is likely a better metric...ratio, or effort, or contribution...
         float elevon2Angle = 0.0f;
         float pitchMomentToElevonSurfaceDeflectionGain = 1.0f;
         float rollMomentToElevonSurfaceDeflectionGain = 1.0f;
+        //float elevon1ResidualAngle = 0.0f;
+        //float elevon2ResidualAngle = 0.0f;
 
-        elevon1Angle = pitchMomentToElevonSurfaceDeflectionGain * desiredMomentY + rollMomentToElevonSurfaceDeflectionGain * desiredMomentX;
-        elevon2Angle = pitchMomentToElevonSurfaceDeflectionGain * desiredMomentY - rollMomentToElevonSurfaceDeflectionGain * desiredMomentX;
+        //float elevon1MaxMoment = 0.0f;
+       // elevon1MaxMoment = dynamicPressure;
+        //calculate control surface force.
+        //calculate control surface moment.
+        #define ELEVON_COEF_OF_LIFT_PER_DEFLECTION 4.0f //(2*PI?)
+        //#define ELEVON_CENTER_OF_PRESSURE_ARM_X_IN_M -0.14512f
+        //        aircraftProperties.elevon1LocationX = -0.14512f;
+        //aircraftProperties.elevon1LocationY = -0.1802f;
+
+        //aircraftProperties.elevon2LocationX = -0.14512f;
+        //aircraftProperties.elevon2LocationY =  0.1802f;
+        //float distanceXFromCGMotors12 = aircraftProperties.motor1LocationX - aircraftProperties.centerOfMassLocationX;
+        //float distanceXFromCGMotor3 = aircraftProperties.motor3LocationX - aircraftProperties.centerOfMassLocationX;
+
+        //have control surface movement become more limited as we get into hover?  Ie: shape the up and down?
+
+        float distanceXFromCGElevons = aircraftProperties.elevon1LocationX - aircraftProperties.centerOfMassLocationX;
+        float distanceYFromCGElevons = aircraftProperties.elevon1LocationY - aircraftProperties.centerOfMassLocationY;
+
+        //this is assuming symetrical elevons, and symetrical deflections.  TODO: protect against negative values.
+        //float elevonMaxForceMagnitude = getControlSurfaceForce(AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MAX_ANGLE, AIRCRAFT_PROPERTIES_ELEVON_AREA_M2, dynamicPressure);
+
+        
+        float elevonDeflectionToForceGain = dynamicPressure * AIRCRAFT_PROPERTIES_ELEVON_AREA_M2 * (1.0f) * ELEVON_COEF_OF_LIFT_PER_DEFLECTION;
+        //protect agains div/0! //TODO: //Mae better.
+        float protectedElevonDeflectionToForceGain = elevonDeflectionToForceGain;
+        if (protectedElevonDeflectionToForceGain < AIRCRAFT_PROPERTIES_ELEVON_AREA_M2 * 50 * ELEVON_COEF_OF_LIFT_PER_DEFLECTION)
+        {
+            protectedElevonDeflectionToForceGain = AIRCRAFT_PROPERTIES_ELEVON_AREA_M2 * 50 * ELEVON_COEF_OF_LIFT_PER_DEFLECTION;
+        }
+
+        pitchMomentToElevonSurfaceDeflectionGain = -1.0f / (protectedElevonDeflectionToForceGain * distanceXFromCGElevons); //the (-) is to convert from trailing edge up = positive to force -down = positive. with the negative arm...
+        rollMomentToElevonSurfaceDeflectionGain = 1.0f / (protectedElevonDeflectionToForceGain * distanceYFromCGElevons); //the (+) is to convert from trailing edge up = positive to force -down = positive. with the negative arm...to positive roll.
+
+        //assuming there are two elevons! (implicitly)
+
+
+        elevon1Angle = 0.5f*pitchMomentToElevonSurfaceDeflectionGain * desiredMomentY + 0.5f*rollMomentToElevonSurfaceDeflectionGain * desiredMomentX;
+        if(elevon1Angle > AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MAX_ANGLE)
+        {
+            //elevon1ResidualAngle = elevon1Angle - AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MAX_ANGLE;
+
+            elevon1Angle = AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MAX_ANGLE;
+        }else if(elevon1Angle < AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MIN_ANGLE)
+        {
+            //elevon1ResidualAngle = elevon1Angle - AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MIN_ANGLE;
+
+            elevon1Angle = AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MIN_ANGLE;
+        }else{
+           // elevon1ResidualAngle = 0.0f;
+        }
+
+        elevon2Angle = 0.5f*pitchMomentToElevonSurfaceDeflectionGain * desiredMomentY - 0.5f*rollMomentToElevonSurfaceDeflectionGain * desiredMomentX;
+        
+        if(elevon2Angle > AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MAX_ANGLE)
+        {
+            //elevon2ResidualAngle = elevon2Angle - AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MAX_ANGLE;
+
+            elevon2Angle = AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MAX_ANGLE;
+        }else if(elevon2Angle < AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MIN_ANGLE)
+        {
+           // elevon2ResidualAngle = elevon2Angle - AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MIN_ANGLE;
+
+            elevon2Angle = AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MIN_ANGLE;
+        }else{
+           // elevon2ResidualAngle = 0.0f;
+        }
+
+        //effectors.elevon1Angle = elevon1ResidualAngle;  //delete //just a quick test to make the unused var error compile go away.
+        //effectors.elevon2Angle = elevon2ResidualAngle;  //delete
+        //effectors.elevon2Angle = elevon1MaxMoment;  //delete
+
+        float residualElevonMomentX = 0.0f;
+        float residualElevonMomentY = 0.0f;
+
+        //since it is a linear system, let's reconstruct the residual moment from the attained angles....perhaps not the best way to do this, but I presently can't think of a way to to do it before calculating deflections.
+       //wrong residualElevonMomentX = elevon1ResidualAngle /(0.5 * rollMomentToElevonSurfaceDeflectionGain) + -1.0f * elevon2ResidualAngle / (0.5 * rollMomentToElevonSurfaceDeflectionGain);
+       //worokg residualElevonMomentY = elevon1ResidualAngle /(0.5 * pitchMomentToElevonSurfaceDeflectionGain) + elevon2ResidualAngle / (0.5 * pitchMomentToElevonSurfaceDeflectionGain);
+
+        float estimatedAttainedElevonMomentX = 0.0f;
+        float estimatedAttainedElevonMomentY = 0.0f;
+
+
+        estimatedAttainedElevonMomentX = elevon1Angle * elevonDeflectionToForceGain * -1.0f * distanceXFromCGElevons + elevon2Angle * elevonDeflectionToForceGain * -1.0f * distanceXFromCGElevons;
+        estimatedAttainedElevonMomentY = elevon1Angle * elevonDeflectionToForceGain * 1.0f * distanceYFromCGElevons + elevon2Angle * elevonDeflectionToForceGain * -1.0f * distanceYFromCGElevons;
+
+        residualElevonMomentX = desiredMomentX - estimatedAttainedElevonMomentX;
+        residualElevonMomentY = desiredMomentY - estimatedAttainedElevonMomentY;
 
         effectors.elevon1Angle = elevon1Angle;
         effectors.elevon2Angle = elevon2Angle;
+
+        //TEST:  //NOT TESTED YET!
+        //Have the motors do what the controls surfaces cannot.
+        desiredMomentX = residualElevonMomentX; 
+        desiredMomentY = residualElevonMomentY; 
+
+
+
+
+        //THIS IS THE WRONG WAY TO DO IT!
+
+        //we should calculate the maximum moment that the surfaces can generate given the present dynamic pressure, then compare to the required moment, then
+        //calculate the residual moment, not residual angle!
+
+
 
 
         //Calculate forward/aft motor thurst(force) distribution from the total body Z force desired and the desired pitching moment.
