@@ -183,7 +183,7 @@ void Plane::update_btol() {  //50Hz
     g2.btolController.setDesiredPassthroughAngularAccelerationYaw(rcCommandInputYawStickRight * 1.0f); //TODO: these are temporary gain placeholders.
 //https://github.com/ArduPilot/ardupilot/blob/master/libraries/AP_Logger/LogStructure.h#L42
 //https://ardupilot.org/dev/docs/code-overview-adding-a-new-log-message.html
-    AP::logger().Write("BCMD", "TimeUS,PitchRate,RollRate,PitchRate",
+    AP::logger().Write("BCMD", "TimeUS,PitchRate,RollRate,YawRate",
                    "SEEE", // units: seconds, rad/sec
                    "F000", // mult: 1e-6, 1e-2
                    "Qfff", // format: uint64_t, float
@@ -730,117 +730,76 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
             desiredAccelerationX = command.targetAccelerationX;  //Right now commanded directly by pilot
         }
 
-        
         float requiredForceZ = desiredAccelerationZ * aircraftProperties.totalMass; //Newtons
         float requiredForceX = desiredAccelerationX * aircraftProperties.totalMass; //Newtons
 
     //calculate effector outputs
 
-        //control surfaces...quick test 
+        //control surfaces: Elevons.
         //Trailing edge up is positive.
 
         float elevon1Angle = 0.0f; //there is likely a better metric...ratio, or effort, or contribution...
         float elevon2Angle = 0.0f;
         float pitchMomentToElevonSurfaceDeflectionGain = 1.0f;
         float rollMomentToElevonSurfaceDeflectionGainPos = 1.0f;
-        //float elevon1ResidualAngle = 0.0f;
-        //float elevon2ResidualAngle = 0.0f;
 
-        //float elevon1MaxMoment = 0.0f;
-       // elevon1MaxMoment = dynamicPressure;
-        //calculate control surface force.
-        //calculate control surface moment.
         #define ELEVON_COEF_OF_LIFT_PER_DEFLECTION 4.0f //(2*PI?)
-        //#define ELEVON_CENTER_OF_PRESSURE_ARM_X_IN_M -0.14512f
-        //        aircraftProperties.elevon1LocationX = -0.14512f;
-        //aircraftProperties.elevon1LocationY = -0.1802f;
 
-        //aircraftProperties.elevon2LocationX = -0.14512f;
-        //aircraftProperties.elevon2LocationY =  0.1802f;
-        //float distanceXFromCGMotors12 = aircraftProperties.motor1LocationX - aircraftProperties.centerOfMassLocationX;
-        //float distanceXFromCGMotor3 = aircraftProperties.motor3LocationX - aircraftProperties.centerOfMassLocationX;
-
-        //have control surface movement become more limited as we get into hover?  Ie: shape the up and down?
-
+        //TODO: have control surface movement become more limited as we get into hover?  Ie: shape the up and down limits?
         float distanceXFromCGElevonsAbsv = fabs(aircraftProperties.elevon1LocationX - aircraftProperties.centerOfMassLocationX);//will be positive //should I make this an abs
         float distanceYFromCGElevonsAbsv = fabs(aircraftProperties.elevon1LocationY - aircraftProperties.centerOfMassLocationY);//will be positive //should I make these ABS?  and understand that they are symetric?
 
         //this is assuming symetrical elevons, and symetrical deflections.  TODO: protect against negative values.
         //float elevonMaxForceMagnitude = getControlSurfaceForce(AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MAX_ANGLE, AIRCRAFT_PROPERTIES_ELEVON_AREA_M2, dynamicPressure);
 
-        
+        //Calculate how much force the surface will generate per deflection.  Assuming linear (or close-enough)
         float elevonDeflectionToForceGain = dynamicPressure * AIRCRAFT_PROPERTIES_ELEVON_AREA_M2 * (1.0f) * ELEVON_COEF_OF_LIFT_PER_DEFLECTION;
-        //protect agains div/0! //TODO: //Mae better.
+        //protect agains div/0! //TODO: //Make better.
         float protectedElevonDeflectionToForceGain = elevonDeflectionToForceGain;
         if (protectedElevonDeflectionToForceGain < AIRCRAFT_PROPERTIES_ELEVON_AREA_M2 * 50 * ELEVON_COEF_OF_LIFT_PER_DEFLECTION)
         {
             protectedElevonDeflectionToForceGain = AIRCRAFT_PROPERTIES_ELEVON_AREA_M2 * 50 * ELEVON_COEF_OF_LIFT_PER_DEFLECTION;
         }
 
+        //Calculate the moment-to-deflection gain so we can calculate the deflection (later).  We use the force and distance.
         pitchMomentToElevonSurfaceDeflectionGain = 1.0f / (protectedElevonDeflectionToForceGain * distanceXFromCGElevonsAbsv); //the (+) is to convert from trailing edge up = positive to force -down = positive. with the positve arm...
         rollMomentToElevonSurfaceDeflectionGainPos = 1.0f / (protectedElevonDeflectionToForceGain * distanceYFromCGElevonsAbsv); //the (+) is to convert from trailing edge up = positive to force -down = positive. with the positve arm...to positive roll.
 
-        //assuming there are two elevons! (implicitly)
-
-
+        //Calculate desired angle for Elevon # 1 (Left).  The 0.5f is because we (implicitly) have two elevons to split the moments.
         elevon1Angle = 0.5f*pitchMomentToElevonSurfaceDeflectionGain * desiredMomentY - 0.5f*rollMomentToElevonSurfaceDeflectionGainPos * desiredMomentX;
+        //Limit elevon deflection to hardware limits.
         if(elevon1Angle > AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MAX_ANGLE)
         {
-            //elevon1ResidualAngle = elevon1Angle - AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MAX_ANGLE;
-
             elevon1Angle = AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MAX_ANGLE;
         }else if(elevon1Angle < AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MIN_ANGLE)
         {
-            //elevon1ResidualAngle = elevon1Angle - AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MIN_ANGLE;
-
             elevon1Angle = AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MIN_ANGLE;
-        }else{
-           // elevon1ResidualAngle = 0.0f;
         }
-
+        //Calculate desired angle for Elevon # 2 (Right) The 0.5f is because we (implicitly) have two elevons to split the moments.
         elevon2Angle = 0.5f*pitchMomentToElevonSurfaceDeflectionGain * desiredMomentY + 0.5f*rollMomentToElevonSurfaceDeflectionGainPos * desiredMomentX;
-        
+        //Limit elevon deflection to hardware limits.
         if(elevon2Angle > AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MAX_ANGLE)
         {
-            //elevon2ResidualAngle = elevon2Angle - AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MAX_ANGLE;
-
             elevon2Angle = AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MAX_ANGLE;
         }else if(elevon2Angle < AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MIN_ANGLE)
         {
-           // elevon2ResidualAngle = elevon2Angle - AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MIN_ANGLE;
-
             elevon2Angle = AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MIN_ANGLE;
-        }else{
-           // elevon2ResidualAngle = 0.0f;
         }
 
-        //effectors.elevon1Angle = elevon1ResidualAngle;  //delete //just a quick test to make the unused var error compile go away.
-        //effectors.elevon2Angle = elevon2ResidualAngle;  //delete
-        //effectors.elevon2Angle = elevon1MaxMoment;  //delete
+        //SOLVED: I think there is an issue here as pitch is resulting in a motor roll command.
+        //Estimate how much moment the elevons are applying to the airframe based on the deflection, deflection to force gain (dynamic pressure), and arm)
+        float estimatedAttainedElevonMomentY = elevon1Angle * elevonDeflectionToForceGain * 1.0f * distanceXFromCGElevonsAbsv  +   elevon2Angle * elevonDeflectionToForceGain * 1.0f * distanceXFromCGElevonsAbsv;
+        float estimatedAttainedElevonMomentX = elevon1Angle * elevonDeflectionToForceGain * -1.0f * distanceYFromCGElevonsAbsv +   elevon2Angle * elevonDeflectionToForceGain * 1.0f * distanceYFromCGElevonsAbsv;
 
-        float residualElevonMomentX = 0.0f;
-        float residualElevonMomentY = 0.0f;
-
-        //since it is a linear system, let's reconstruct the residual moment from the attained angles....perhaps not the best way to do this, but I presently can't think of a way to to do it before calculating deflections.
-       //wrong residualElevonMomentX = elevon1ResidualAngle /(0.5 * rollMomentToElevonSurfaceDeflectionGain) + -1.0f * elevon2ResidualAngle / (0.5 * rollMomentToElevonSurfaceDeflectionGain);
-       //worokg residualElevonMomentY = elevon1ResidualAngle /(0.5 * pitchMomentToElevonSurfaceDeflectionGain) + elevon2ResidualAngle / (0.5 * pitchMomentToElevonSurfaceDeflectionGain);
-
-        float estimatedAttainedElevonMomentX = 0.0f;
-        float estimatedAttainedElevonMomentY = 0.0f;
-
-        //I think there is an issue here as pitch is resulting in a motor roll command.
-        estimatedAttainedElevonMomentY = elevon1Angle * elevonDeflectionToForceGain * 1.0f * distanceXFromCGElevonsAbsv  +   elevon2Angle * elevonDeflectionToForceGain * 1.0f * distanceXFromCGElevonsAbsv;
-        estimatedAttainedElevonMomentX = elevon1Angle * elevonDeflectionToForceGain * -1.0f * distanceYFromCGElevonsAbsv +   elevon2Angle * elevonDeflectionToForceGain * 1.0f * distanceYFromCGElevonsAbsv;
-
-        residualElevonMomentX = desiredMomentX - estimatedAttainedElevonMomentX;
-        residualElevonMomentY = desiredMomentY - estimatedAttainedElevonMomentY;
+        float residualElevonMomentX = desiredMomentX - estimatedAttainedElevonMomentX;
+        float residualElevonMomentY = desiredMomentY - estimatedAttainedElevonMomentY;
 
         effectors.elevon1Angle = elevon1Angle;
         effectors.elevon2Angle = elevon2Angle;
 
         AP::logger().Write("BELE", "TimeUS,q,rMom,pMom,elvDeflFrceGn,e1Cmd,e2Cmd,resX,resY",
             "S--------", // units: seconds, rad/sec
-            "F00000000", // mult: 1e-6, 1e-2
+            "FB00A0000", // mult: 1e-6, 1e-2
             "Qffffffff", // format: uint64_t, float
             AP_HAL::micros64(),
             (double)dynamicPressure,
@@ -853,7 +812,7 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
             (double)residualElevonMomentY
             );
 
-        //TEST:  //NOT TESTED YET!
+        //TEST:  //NOT TESTED YET!...tested some....
         //Have the motors do what the controls surfaces cannot.
         desiredMomentX = residualElevonMomentX; 
         desiredMomentY = residualElevonMomentY; 
