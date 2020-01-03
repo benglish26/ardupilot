@@ -16,9 +16,9 @@ extern const AP_HAL::HAL& hal;
 #endif
 */ 
 /*
-*  ArduSoar support function
+*  
 *
-*  Peter Braswell, Samuel Tabor, Andrey Kolobov, and Iain Guilliard
+*  
 */
 
 //Presently running at 50Hz.  See ArduPlane.cpp :    SCHED_TASK(update_btol,            50,    400),
@@ -41,17 +41,6 @@ extern const AP_HAL::HAL& hal;
 #define TILT1_SERVO_MIN_ANGLE_PWM 2060  //PWM uS
 #define TILT1_SERVO_MAX_ANGLE 1.74533f  //radians
 #define TILT1_SERVO_MAX_ANGLE_PWM 925 //PWM uS
-/*
-#define ELEVON1_SERVO_MIN_ANGLE -0.506f //Radians.
-#define ELEVON1_SERVO_MIN_ANGLE_PWM 1000  //PWM uS
-#define ELEVON1_SERVO_MAX_ANGLE 0.506f  //radians
-#define ELEVON1_SERVO_MAX_ANGLE_PWM 1950 //PWM uS
-
-#define ELEVON2_SERVO_MIN_ANGLE -0.506f //Radians.
-#define ELEVON2_SERVO_MIN_ANGLE_PWM 2000  //PWM uS
-#define ELEVON2_SERVO_MAX_ANGLE 0.506f  //radians
-#define ELEVON2_SERVO_MAX_ANGLE_PWM 1050 //PWM uS
-*/
 
 #define TILT2_SERVO_MIN_ANGLE 0.0f //radians
 #define TILT2_SERVO_MIN_ANGLE_PWM 925 //PWM uS
@@ -68,10 +57,9 @@ extern const AP_HAL::HAL& hal;
 #define TOP_OF_TRANSITION_DEFAULT_DYNAMIC_PRESSURE 200.0f //N/m^2 or Pa
 #define DEFAULT_VERTICAL_ACCELERATION_THRESHOLD_TO_CONSIDER_AIRCRAFT_IN_HOVER -8.0f //m/s/s
 
-//static float rcCommandInputPitchStickAft = 0;
-//static float rcCommandInputRollStickRight = 0;
-//static float rcCommandInputYawStickRight = 0;
-//static float rcCommandInputThrottleStickForward = 0;
+#define MOTOR_CONTROL_MIN_VALUE 1000
+#define MOTOR_CONTROL_MAX_VALUE 2000
+#define MOTOR_CONTROL_RANGE (MOTOR_CONTROL_MAX_VALUE-MOTOR_CONTROL_MIN_VALUE)
 
 const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
 	    // parameters from parent vehicle
@@ -117,9 +105,7 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
     AP_GROUPINFO("ROLL_ATR",      7, BTOL_Controller, rollAttitudeErrorToRollRateGain,       1.0f), //attitude error to rate gain.
     AP_GROUPINFO("PTCH_ATR",      8, BTOL_Controller, pitchAttitudeErrorToPitchRateGain,       1.0f),
     AP_GROUPINFO("MTV_TLT_DIR",      9, BTOL_Controller, manualTiltCommandMappingPolarity,       1.0f),
-
     AP_GROUPINFO("PATTICMDG",        10, BTOL_Controller, pitchAttitudeCommandGain,        0.5f),
-
     AP_GROUPINFO("M12_MXTRST",        11, BTOL_Controller, motor12MaxThrust,        MOTOR_12_DEFAULT_MAX_THRUST_N),
     AP_GROUPINFO("M3_MXTHRST",        12, BTOL_Controller, motor3MaxThrust,        MOTOR_3_DEFAULT_MAX_THRUST_N),
     AP_GROUPINFO("TOP_TRAN_Q",        13, BTOL_Controller, topOfTransitionDynamicPressure,        TOP_OF_TRANSITION_DEFAULT_DYNAMIC_PRESSURE),
@@ -128,8 +114,6 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
 
 	AP_GROUPEND
 };
-
-
 
 void Plane::update_btol() {  //50Hz
     //take pilot input
@@ -168,7 +152,6 @@ void Plane::update_btol() {  //50Hz
     g2.btolController.setDesiredTiltAngle(mtv_direct_command_tilt_angle);
     g2.btolController.setDesiredAccelerationAlongTiltAngle(mtv_direct_command_tilt_acceleration);
 
-    
     //calculate pitch atttiude
     g2.btolController.setDesiredPitchAttitude(rcCommandInputPitchStickAft * g2.btolController.getPitchAttitudeCommandGain());
     g2.btolController.setDesiredRollAttitude(rcCommandInputRollStickRight * g2.btolController.getRollAttitudeCommandGain());
@@ -192,8 +175,6 @@ void Plane::update_btol() {  //50Hz
                    (double)rcCommandInputRollStickRight * g2.btolController.getRollRateCommandGain(),
                    (double)rcCommandInputYawStickRight * g2.btolController.getYawRateCommandGain()
                    );
-
-
 
     //Todo: this should be a state machine.  This is a bit hacky, setting it every cycle.
     if(hal.rcin->read(RC_CHANNEL_NUMBER_FOR_ARM_SWITCH) > 1600 && g2.btolController.getArmedState() != 1)
@@ -248,29 +229,15 @@ void Plane::update_btol() {  //50Hz
 
     //calculate heading rate
 
-
-
     //calculate desired attiutdes and rates
 
     //set control parameter targets
 
-
    //gcs().send_text(MAV_SEVERITY_INFO, "UPD BTOL");// %5.3f", (double)3.142f);  //Checked, this is getting called.
-
-
-
   //DOESN'T SEEM TO WORK hal.console->printf("RC: %i\n", plane.channel_rudder->get_control_in_zero_dz());
-
- //   SRV_Channels::set_output_scaled(SRV_Channel::k_aileron, plane.channel_rudder->get_control_in_zero_dz());
- //   SRV_Channels::set_output_scaled(SRV_Channel::k_elevator, plane.channel_rudder->get_control_in_zero_dz());
-
    //Doesn't work printf(" test2\n");
     //doesn't work ::printf(" test\n");
- 
-
    //hal.console->printf("test4");  //didn't work.
-
-    //plane.steering_control.steering = plane.steering_control.rudder = plane.channel_rudder->get_control_in_zero_dz();
 }
 
 void Plane::initialize_btol(){
@@ -300,6 +267,8 @@ void Plane::btol_stabilize() {
 		dt = 0;
 	}
 	_last_t = tnow;
+
+
 
     /*uint32_t now = AP_HAL::millis();
     if (now - last_stabilize_ms > 2000) {
@@ -345,30 +314,16 @@ void Plane::btol_stabilize() {
     // Get body rate vector (radians/sec)
 	//float omega_x = _ahrs.get_gyro().x;
   //  float omega_x =  ahrs.get_gyro().x;
-    
-   // int16_t servoControlValue2 = SERVO_CONTROL_CENTER_VALUE + constrain_int16(int16_t(omega_x*500), -500, 500);  //doesn't work
-   // int16_t servoControlValue3 = SERVO_CONTROL_CENTER_VALUE + constrain_int16(int16_t(ahrs.get_yaw_rate_earth()*500), -500, 500);  //works  (float)
-   // int16_t servoControlValue4 = SERVO_CONTROL_CENTER_VALUE + constrain_int16(int16_t(ahrs.pitch*500), -500, 500);  //works (float)
+
     int16_t servoControlValue5 = SERVO_CONTROL_CENTER_VALUE;// + constrain_int16(int16_t(rcCommandInputPitchStickAft*500), -500, 500);  //works (float)
 
     EffectorList effectorCommands;
     effectorCommands = g2.btolController.calculateEffectorPositions( PID_400HZ_DT); //this delta time is wrong, of course!  Should be dynamicly populated.
 
-
-
-    //int16_t servoControlValueElevon1 = g2.btolController.calculateServoValueFromAngle(effectorCommands.elevon1Angle, -0.785398f, 0.785398f, 1000, 2000);
-    //int16_t servoControlValueElevon2 = g2.btolController.calculateServoValueFromAngle(effectorCommands.elevon2Angle, -0.785398f, 0.785398f, 2000, 1000);
     int16_t servoControlValueElevon1 = g2.btolController.calculateServoValueFromAngle(effectorCommands.elevon1Angle, AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MIN_ANGLE, AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MAX_ANGLE, AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MIN_ANGLE_PWM, AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MAX_ANGLE_PWM);
     int16_t servoControlValueElevon2 = g2.btolController.calculateServoValueFromAngle(effectorCommands.elevon2Angle, AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MIN_ANGLE, AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MAX_ANGLE, AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MIN_ANGLE_PWM, AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MAX_ANGLE_PWM);
     int16_t servoControlValueTilt1 = g2.btolController.calculateServoValueFromAngle(effectorCommands.tilt1Angle, TILT1_SERVO_MIN_ANGLE, TILT1_SERVO_MAX_ANGLE, TILT1_SERVO_MIN_ANGLE_PWM, TILT1_SERVO_MAX_ANGLE_PWM);
     int16_t servoControlValueTilt2 = g2.btolController.calculateServoValueFromAngle(effectorCommands.tilt2Angle, TILT2_SERVO_MIN_ANGLE, TILT2_SERVO_MAX_ANGLE, TILT2_SERVO_MIN_ANGLE_PWM, TILT2_SERVO_MAX_ANGLE_PWM);
-
-    #define MOTOR_CONTROL_MIN_VALUE 1000
-    #define MOTOR_CONTROL_MAX_VALUE 2000
-    #define MOTOR_CONTROL_RANGE (MOTOR_CONTROL_MAX_VALUE-MOTOR_CONTROL_MIN_VALUE)
-    //#define MOTOR_1_MAX_THRUST_N //8.0 10.0f
-    //#define MOTOR_2_MAX_THRUST_N //8.0  10.0f
-    //#define MOTOR_3_MAX_THRUST_N //3.0f
 
     //starting out expecting values from 0.0 to +1.0
     //need to convert motor thrust to ESC commands using some scalar...ie: from newtons to scalar 0.0 to 1.0
@@ -397,6 +352,25 @@ void Plane::btol_stabilize() {
     hal.rcout->write(CH_7, servoControlValueMotor2);
     hal.rcout->write(CH_8, servoControlValueMotor3);
     hal.rcout->push();  //will need to use: SRV_Channels::push(); or parts of it when we use BL Heli or D-shot!
+
+
+//https://github.com/ArduPilot/ardupilot/blob/master/libraries/AP_Logger/LogStructure.h#L42
+//https://ardupilot.org/dev/docs/code-overview-adding-a-new-log-message.html
+    AP::logger().Write("BSTB", "TimeUS,deltaT,c1,c2,c3,c4,c5,c6,c7,c8",
+                   "SS--------", // units: seconds, rad/sec
+                   "F000000000", // mult: 1e-6, 1e-2
+                   "QIhhhhhhhh", // format: uint64_t, float
+                   AP_HAL::micros64(),
+                   dt,
+                   servoControlValueElevon1,
+                   servoControlValueElevon2,
+                   servoControlValueTilt1,
+                   servoControlValueTilt2,
+                   servoControlValue5,
+                   servoControlValueMotor1,
+                   servoControlValueMotor2,
+                   servoControlValueMotor3
+                   );
 }
 
 
@@ -411,7 +385,6 @@ float BTOL_Controller::getControlSurfaceForce(float deflectionAngleInRadians, fl
 
     return controlSurfaceForce;
 }
-
 
 float BTOL_Controller::getEstimatedDynamicPressure(void)
 {
@@ -610,32 +583,10 @@ int16_t BTOL_Controller::calculateServoValueFromAngle(float desiredAngle, float 
     return motorForceDemand;
  }
 
+
+
 EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
 {
-
-        //get rate errors //this is just the command input without stability on...
-       // rollRateError = command.targetRollRate - _ahrs.get_gyro().x;  //roll
-       // pitchRateError = command.targetPitchRate - _ahrs.get_gyro().y;  //pitch
-        //yawRateError = command.targetYawRate - _ahrs.get_gyro().z;  //yaw
-
-
-  //  float pilotRollRateContribution = command.targetRollRate;
-  //  float pilotPitchRateContribution = command.targetPitchRate;
-  //  float pilotYawRateContribution = command.targetYawRate;
-
-  //  float attitudeStabilizationRollRateContribution = 0.0f;
-  //  float attitudeStabilizationPitchRateContribution = 0.0f;
-  //  float attitudeStabilizationYawRateContribution = 0.0f;
-    
-    //float targetRollRate = pilotRollRateContribution + attitudeStabilizationRollRateContribution; //this can be done more explicitly...but lets KISS for now.
-   // float targetPitchRate = pilotPitchRateContribution + attitudeStabilizationPitchRateContribution; //this can be done more explicitly...but lets KISS for now.
-   // float targetYawRate = pilotYawRateContribution + attitudeStabilizationYawRateContribution; //this can be done more explicitly...but lets KISS for now.
-
-  //  rollRateError = targetRollRate - _ahrs.get_gyro().x;  //roll
-   // pitchRateError = targetPitchRate - _ahrs.get_gyro().y;  //pitch
-   // yawRateError = targetYawRate - _ahrs.get_gyro().z;  //yaw
-
-    //desiredAccelerationZ = command.targetAccelerationZ;  //Right now commanded directly by pilot
 
     float dynamicPressure = getEstimatedDynamicPressure();
     //Add transition ratio.  Consider mutiplying q by 1/100 or acceleration by 10 and radians by 100
@@ -650,23 +601,14 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
                 );
 
     //now do some regulator stuff!
-
     float desiredMomentX = 0.0f;
     float desiredMomentY = 0.0f;
     float desiredMomentZ = 0.0f;
-
-    //_pid_rate_roll.update_error();
 
     if(state.regulatorMode == CONTROLLER_STATE_REGULATOR_MODE_ATTITUDE)
     {
         float attitudeErrorRoll = command.targetRollAttitude - _ahrs.get_roll();
         float attitudeErrorPitch = command.targetPitchAttitude - _ahrs.get_pitch();
-
-
-
-
-       // float pitchAttitudeToPitchRateGain = 2.0;
-        //float rollAttitudeToRollRateGain = 2.0;
 
         float targetRollRate = attitudeErrorRoll * rollAttitudeErrorToRollRateGain.get(); //this could be an issue, also.  TODO
         float targetPitchRate = attitudeErrorPitch * pitchAttitudeErrorToPitchRateGain.get(); //not sure if this is the right way to do this!
@@ -674,12 +616,6 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         desiredMomentX = get_rate_roll_pid().update_all(targetRollRate,_ahrs.get_gyro().x, false);
         desiredMomentY = get_rate_pitch_pid().update_all(targetPitchRate,_ahrs.get_gyro().y, false);
         desiredMomentZ = get_rate_yaw_pid().update_all(command.targetYawRate,_ahrs.get_gyro().z, false);
-        
-        //testing the getter...see if this helps with patameters saving/use?
-        //desiredMomentX = _pid_rate_roll.update_all(targetRollRate,_ahrs.get_gyro().x, false);
-        //desiredMomentY = _pid_rate_pitch.update_all(targetPitchRate,_ahrs.get_gyro().y, false);
-        //desiredMomentZ = _pid_rate_yaw.update_all(command.targetYawRate,_ahrs.get_gyro().z, false);
-
     }
 
     if(state.regulatorMode == CONTROLLER_STATE_REGULATOR_MODE_RATE)
@@ -695,13 +631,6 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
     AP::logger().Write_PID(LOG_PIDR_MSG, get_rate_roll_pid().get_pid_info());
     AP::logger().Write_PID(LOG_PIDP_MSG, get_rate_pitch_pid().get_pid_info());
     AP::logger().Write_PID(LOG_PIDY_MSG, get_rate_yaw_pid().get_pid_info());
-
-
-    //_pid_rate_roll.set_actual_rate(_ahrs.get_gyro().x);
-    //_pid_rate_roll.get_ff();
-
-    
-
 
     //calculate desired moments
         //calculate reponse to the rate errors.
@@ -737,7 +666,6 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
 
         //control surfaces: Elevons.
         //Trailing edge up is positive.
-
         float elevon1Angle = 0.0f; //there is likely a better metric...ratio, or effort, or contribution...
         float elevon2Angle = 0.0f;
         float pitchMomentToElevonSurfaceDeflectionGain = 1.0f;
@@ -817,13 +745,7 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         desiredMomentX = residualElevonMomentX; 
         desiredMomentY = residualElevonMomentY; 
 
-
-        //THIS IS THE WRONG WAY TO DO IT!
-
-        //we should calculate the maximum moment that the surfaces can generate given the present dynamic pressure, then compare to the required moment, then
-        //calculate the residual moment, not residual angle!
-
-
+        //Now calculate motors and tilts!
         //Calculate forward/aft motor thurst(force) distribution from the total body Z force desired and the desired pitching moment.
         float totalForceUp = 0.0f; //backwards
         float totalMomentForward = 0.0f; //backwards, but this is how I did the math, so lets start with this, as the arms work out this way if the x axis is used
@@ -862,7 +784,6 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         float deltaForceForwardStation12ForYaw = 0.0;
 
         //max forward thrust should be defined on the capabilities of the motors, and need for yaw overhead.
-
         forceForwardMotors12 = constrain_float(requiredForceX, -20, 20); //temp min and max thrust values.  //Will need to change this for forward flight vs hover.
 
         #define DELTA_MOTOR_FORCE_FORWARD_FOR_YAW_POLARITY 1.0 //change this if we move to a controls frame down.
@@ -875,7 +796,6 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         //Calculate tilt angle from the forces...
 
         //for the tilt angle calulation, enforce a minimum upward force.
-
         float idealTilt1Angle = 0.0f; //0 is forward, 90degrees (this is radians) is up.
         float tiltCalculationMotor1ForceUp = forceUpMotor1;
         float tiltCalculationMotor1ForceForward = forceForwardMotor1;
@@ -902,34 +822,9 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         //#define TILT_ANGLE_MAX_DELTA_FROM_COLLECTIVE_TILT_ANGLE...this doesn't work because of the contribution from the tail motor...
         //lets make it a large value which is enough to keep the motors from hitting the ground at low thrust values.
 
-
-
         //TODO: individual tilts shouldn't be making full decisions.  look at collective values.
-
         motor1ForceDemand = calculateMotorThrustBasedOnTiltAngle(tilt1Angle, tiltCalculationMotor1ForceForward, tiltCalculationMotor1ForceUp, TILT_SATISFACTION_ANGLE_LOW, TILT_SATISFACTION_ANGLE_HIGH);
 
-/*
-        //todo: make this into a function!
-        if(tilt1Angle < TILT_SATISFACTION_ANGLE_LOW)
-        {
-            //Lower Range
-            motor1ForceDemand = tiltCalculationMotor1ForceForward / cosf(tilt1Angle); //don;t div/0!  TODO!
-        }else if (tilt1Angle < TILT_SATISFACTION_ANGLE_HIGH){
-            //Middle Range
-            //linear blend?  what type of blend?
-            float satisfactionRatio = 0.0;
-            float satisfactionValueX = tiltCalculationMotor1ForceForward / cosf(tilt1Angle); //don;t div/0!  TODO!
-            float satisfactionValueY = tiltCalculationMotor1ForceUp / sinf(tilt1Angle); //don;t div/0!  TODO!
-            float middleRange = TILT_SATISFACTION_ANGLE_HIGH - TILT_SATISFACTION_ANGLE_LOW;
-
-            satisfactionRatio = (tilt1Angle - TILT_SATISFACTION_ANGLE_LOW) / middleRange; //TODO: div/0 protection!
-            motor1ForceDemand = satisfactionRatio * satisfactionValueX + (1.0f - satisfactionRatio) * satisfactionValueY;
-
-        }else{
-            //Upper Range
-            motor1ForceDemand = tiltCalculationMotor1ForceUp / sinf(tilt1Angle); //don't div/0 TODO!
-        }
-        */
         //the tilts move fast, but not that fast...
         //move tilt 1 angle to this value at the correct rate, Add tilt rate limits, so we can slew correctly and don’t put motor values in that aren’t aligned with tilt angle.
 
@@ -947,53 +842,10 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         float tilt2Angle = 0.0f;
         tilt2Angle = constrain_float(idealTilt2Angle, TILT1_SERVO_MIN_ANGLE, TILT2_SERVO_MAX_ANGLE);
         tilt2Angle = constrain_float(tilt2Angle, maxConstrainedIndividualTiltAngleMin, maxConstrainedIndividualTiltAngleMax);
-        float motor2ForceDemand = 0.0;
-        //todo: make this into a function!
 
-        motor2ForceDemand = calculateMotorThrustBasedOnTiltAngle(tilt2Angle, tiltCalculationMotor2ForceForward, tiltCalculationMotor2ForceUp, TILT_SATISFACTION_ANGLE_LOW, TILT_SATISFACTION_ANGLE_HIGH);
-
-        /*if(tilt2Angle < TILT_SATISFACTION_ANGLE_LOW)
-        {
-            //Lower Range
-            motor2ForceDemand = tiltCalculationMotor2ForceForward / cosf(tilt2Angle); //don;t div/0!  TODO!
-        }else if (tilt2Angle < TILT_SATISFACTION_ANGLE_HIGH){
-            //Middle Range
-            //linear blend?  what type of blend?
-            float satisfactionRatio = 0.0;
-            float satisfactionValueX = tiltCalculationMotor2ForceForward / cosf(tilt2Angle); //don;t div/0!  TODO!
-            float satisfactionValueY = tiltCalculationMotor2ForceUp / sinf(tilt2Angle); //don;t div/0!  TODO!
-            float middleRange = TILT_SATISFACTION_ANGLE_HIGH - TILT_SATISFACTION_ANGLE_LOW;
-
-            satisfactionRatio = (tilt2Angle - TILT_SATISFACTION_ANGLE_LOW) / middleRange; //TODO: div/0 protection!
-            motor2ForceDemand = satisfactionRatio * satisfactionValueX + (1.0f - satisfactionRatio) * satisfactionValueY;
-
-        }else{
-            //Upper Range
-            motor2ForceDemand = tiltCalculationMotor2ForceUp / sinf(tilt2Angle); //don't div/0 TODO!
-        }*/
-
-
-
-
-        /*
-        //hacky test!
-        float tilt1Angle = 0.0f; //0 is forward, 90degrees (this is radians) is up.
-        float tilt2Angle = 0.0f;
-        float tiltCollectiveAngle = 1.5708/2 - requiredForceX/10.0f * 1.5708/2; //TODO: this is a hacky test.  90 +- 10 degrees. //works, but the accel value is in m/s/s and is very large!
-        float tiltDeltaAngle = 0.0; //positive values cause right yaw (or left roll = (  ))
-
-        tiltDeltaAngle = desiredMomentZ * 0.5; //TODO: quick test.
-
-        tilt1Angle = tiltCollectiveAngle + tiltDeltaAngle;
-        tilt2Angle = tiltCollectiveAngle - tiltDeltaAngle;*/
-
-        //float motor1ForceDemand = 0.0;
-        float motor3ForceDemand = 0.0;
-
-        //these need to be in the direction of the tilt, ie, what's attainable.  What is below isn't right...
-        //motor1ForceDemand = sqrtf(tiltCalculationMotor1ForceUp*tiltCalculationMotor1ForceUp + tiltCalculationMotor1ForceForward*tiltCalculationMotor1ForceForward);
-        //motor2ForceDemand = sqrtf(tiltCalculationMotor2ForceUp*tiltCalculationMotor2ForceUp + tiltCalculationMotor2ForceForward*tiltCalculationMotor2ForceForward);
-        motor3ForceDemand = forceUpMotor3; //make sure can't be negative...or update the firmware so it can be!
+        float motor2ForceDemand = calculateMotorThrustBasedOnTiltAngle(tilt2Angle, tiltCalculationMotor2ForceForward, tiltCalculationMotor2ForceUp, TILT_SATISFACTION_ANGLE_LOW, TILT_SATISFACTION_ANGLE_HIGH);
+        
+        float motor3ForceDemand = forceUpMotor3; //make sure can't be negative...or update the firmware so it can be!
 
         effectors.tilt1Angle = tilt1Angle;
         effectors.tilt2Angle = tilt2Angle;
@@ -1001,21 +853,7 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         effectors.motor1Thrust = motor1ForceDemand;//forceUpMotor1; //will need to be replaced the total force, not just the up force!
         effectors.motor2Thrust = motor2ForceDemand; //forceUpMotor2; //will need to be replaced the total force, not just the up force!
         effectors.motor3Thrust = motor3ForceDemand; //will need to be replaced the total force, not just the up force!
-
-        //(1) calculate front z acceleration vs aft z acceleration based on body z acceleration and y moment.
-
-        //(2) use x accel to get the desired tilt angle.
-        
-        //(3) Matrix rotation into the tilt frame for delta tilt and delta thrust. for roll and yaw.
-
-
-
-
-    //calculate 
-       // effectors.elevon1Angle = rollRateError;
-       // effectors.elevon2Angle = pitchRateError;
-       // effectors.tilt1Angle = 0.0; //yawRateError;
-       // effectors.tilt2Angle = 0.0;//_ahrs.pitch;
+    
 
     return effectors;
 }
