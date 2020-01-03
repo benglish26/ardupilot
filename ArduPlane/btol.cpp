@@ -181,6 +181,17 @@ void Plane::update_btol() {  //50Hz
     g2.btolController.setDesiredPassthroughAngularAccelerationPitch(rcCommandInputPitchStickAft * 1.0f);
     g2.btolController.setDesiredPassthroughAngularAccelerationRoll(rcCommandInputRollStickRight * 1.0f);
     g2.btolController.setDesiredPassthroughAngularAccelerationYaw(rcCommandInputYawStickRight * 1.0f); //TODO: these are temporary gain placeholders.
+//https://github.com/ArduPilot/ardupilot/blob/master/libraries/AP_Logger/LogStructure.h#L42
+//https://ardupilot.org/dev/docs/code-overview-adding-a-new-log-message.html
+    AP::logger().Write("BCMD", "TimeUS,PitchRate,RollRate,PitchRate",
+                   "SEEE", // units: seconds, rad/sec
+                   "F000", // mult: 1e-6, 1e-2
+                   "Qfff", // format: uint64_t, float
+                   AP_HAL::micros64(),
+                   (double)rcCommandInputPitchStickAft * g2.btolController.getPitchRateCommandGain(),
+                   (double)rcCommandInputRollStickRight * g2.btolController.getRollRateCommandGain(),
+                   (double)rcCommandInputYawStickRight * g2.btolController.getYawRateCommandGain()
+                   );
 
 
 
@@ -213,6 +224,13 @@ void Plane::update_btol() {  //50Hz
     {
         g2.btolController.setRegulatorModeState(CONTROLLER_STATE_REGULATOR_MODE_PASSTHROUGH);
         gcs().send_text(MAV_SEVERITY_CRITICAL, "MODE PASS THROUGH");
+        hal.console->printf("Number = %f\n",g2.btolController.getRegulatorModeState());
+        
+        //https://ardupilot.org/dev/docs/code-overview-adding-a-new-log-message.html
+       // AP::logger().Write("BSYS", "TimeUS,Mode", "QI",
+       //                                 AP_HAL::micros64(),
+        //                                g2.btolController.getRegulatorModeState());
+
 
         // Reset the PID filters
         g2.btolController.get_rate_roll_pid().reset_filter();
@@ -223,6 +241,8 @@ void Plane::update_btol() {  //50Hz
         g2.btolController.get_rate_pitch_pid().reset_I();
         g2.btolController.get_rate_yaw_pid().reset_I();
     }
+
+
 
     //calculate roll atttiude
 
@@ -618,6 +638,16 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
     //desiredAccelerationZ = command.targetAccelerationZ;  //Right now commanded directly by pilot
 
     float dynamicPressure = getEstimatedDynamicPressure();
+    //Add transition ratio.  Consider mutiplying q by 1/100 or acceleration by 10 and radians by 100
+    AP::logger().Write("BTOL", "TimeUS,q,cmdTilt,cmdAccel",
+                "S-ro", // units: seconds, rad/sec
+                "F000", // mult: 1e-6, 1e-2
+                "Qfff", // format: uint64_t, float
+                AP_HAL::micros64(),
+                (double)dynamicPressure,
+                (double)command.targetTiltAngle,
+                (double)command.targetTiltAcceleration
+                );
 
     //now do some regulator stuff!
 
@@ -631,6 +661,10 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
     {
         float attitudeErrorRoll = command.targetRollAttitude - _ahrs.get_roll();
         float attitudeErrorPitch = command.targetPitchAttitude - _ahrs.get_pitch();
+
+
+
+
        // float pitchAttitudeToPitchRateGain = 2.0;
         //float rollAttitudeToRollRateGain = 2.0;
 
@@ -655,6 +689,12 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         desiredMomentZ = get_rate_yaw_pid().update_all(command.targetYawRate,_ahrs.get_gyro().z, false);
 
     }
+
+    //Log the PID values.
+    //not sure what to put in the identifier enum  just going to try using the default ones...because the defaults should't be running, because I disabled them.
+    AP::logger().Write_PID(LOG_PIDR_MSG, get_rate_roll_pid().get_pid_info());
+    AP::logger().Write_PID(LOG_PIDP_MSG, get_rate_pitch_pid().get_pid_info());
+    AP::logger().Write_PID(LOG_PIDY_MSG, get_rate_yaw_pid().get_pid_info());
 
 
     //_pid_rate_roll.set_actual_rate(_ahrs.get_gyro().x);
@@ -702,7 +742,7 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         float elevon1Angle = 0.0f; //there is likely a better metric...ratio, or effort, or contribution...
         float elevon2Angle = 0.0f;
         float pitchMomentToElevonSurfaceDeflectionGain = 1.0f;
-        float rollMomentToElevonSurfaceDeflectionGain = 1.0f;
+        float rollMomentToElevonSurfaceDeflectionGainPos = 1.0f;
         //float elevon1ResidualAngle = 0.0f;
         //float elevon2ResidualAngle = 0.0f;
 
@@ -722,8 +762,8 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
 
         //have control surface movement become more limited as we get into hover?  Ie: shape the up and down?
 
-        float distanceXFromCGElevons = aircraftProperties.elevon1LocationX - aircraftProperties.centerOfMassLocationX;
-        float distanceYFromCGElevons = aircraftProperties.elevon1LocationY - aircraftProperties.centerOfMassLocationY;
+        float distanceXFromCGElevonsAbsv = fabs(aircraftProperties.elevon1LocationX - aircraftProperties.centerOfMassLocationX);//will be positive //should I make this an abs
+        float distanceYFromCGElevonsAbsv = fabs(aircraftProperties.elevon1LocationY - aircraftProperties.centerOfMassLocationY);//will be positive //should I make these ABS?  and understand that they are symetric?
 
         //this is assuming symetrical elevons, and symetrical deflections.  TODO: protect against negative values.
         //float elevonMaxForceMagnitude = getControlSurfaceForce(AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MAX_ANGLE, AIRCRAFT_PROPERTIES_ELEVON_AREA_M2, dynamicPressure);
@@ -737,13 +777,13 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
             protectedElevonDeflectionToForceGain = AIRCRAFT_PROPERTIES_ELEVON_AREA_M2 * 50 * ELEVON_COEF_OF_LIFT_PER_DEFLECTION;
         }
 
-        pitchMomentToElevonSurfaceDeflectionGain = -1.0f / (protectedElevonDeflectionToForceGain * distanceXFromCGElevons); //the (-) is to convert from trailing edge up = positive to force -down = positive. with the negative arm...
-        rollMomentToElevonSurfaceDeflectionGain = 1.0f / (protectedElevonDeflectionToForceGain * distanceYFromCGElevons); //the (+) is to convert from trailing edge up = positive to force -down = positive. with the negative arm...to positive roll.
+        pitchMomentToElevonSurfaceDeflectionGain = 1.0f / (protectedElevonDeflectionToForceGain * distanceXFromCGElevonsAbsv); //the (+) is to convert from trailing edge up = positive to force -down = positive. with the positve arm...
+        rollMomentToElevonSurfaceDeflectionGainPos = 1.0f / (protectedElevonDeflectionToForceGain * distanceYFromCGElevonsAbsv); //the (+) is to convert from trailing edge up = positive to force -down = positive. with the positve arm...to positive roll.
 
         //assuming there are two elevons! (implicitly)
 
 
-        elevon1Angle = 0.5f*pitchMomentToElevonSurfaceDeflectionGain * desiredMomentY + 0.5f*rollMomentToElevonSurfaceDeflectionGain * desiredMomentX;
+        elevon1Angle = 0.5f*pitchMomentToElevonSurfaceDeflectionGain * desiredMomentY - 0.5f*rollMomentToElevonSurfaceDeflectionGainPos * desiredMomentX;
         if(elevon1Angle > AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MAX_ANGLE)
         {
             //elevon1ResidualAngle = elevon1Angle - AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MAX_ANGLE;
@@ -758,7 +798,7 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
            // elevon1ResidualAngle = 0.0f;
         }
 
-        elevon2Angle = 0.5f*pitchMomentToElevonSurfaceDeflectionGain * desiredMomentY - 0.5f*rollMomentToElevonSurfaceDeflectionGain * desiredMomentX;
+        elevon2Angle = 0.5f*pitchMomentToElevonSurfaceDeflectionGain * desiredMomentY + 0.5f*rollMomentToElevonSurfaceDeflectionGainPos * desiredMomentX;
         
         if(elevon2Angle > AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MAX_ANGLE)
         {
@@ -788,9 +828,9 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         float estimatedAttainedElevonMomentX = 0.0f;
         float estimatedAttainedElevonMomentY = 0.0f;
 
-
-        estimatedAttainedElevonMomentX = elevon1Angle * elevonDeflectionToForceGain * -1.0f * distanceXFromCGElevons + elevon2Angle * elevonDeflectionToForceGain * -1.0f * distanceXFromCGElevons;
-        estimatedAttainedElevonMomentY = elevon1Angle * elevonDeflectionToForceGain * 1.0f * distanceYFromCGElevons + elevon2Angle * elevonDeflectionToForceGain * -1.0f * distanceYFromCGElevons;
+        //I think there is an issue here as pitch is resulting in a motor roll command.
+        estimatedAttainedElevonMomentY = elevon1Angle * elevonDeflectionToForceGain * 1.0f * distanceXFromCGElevonsAbsv  +   elevon2Angle * elevonDeflectionToForceGain * 1.0f * distanceXFromCGElevonsAbsv;
+        estimatedAttainedElevonMomentX = elevon1Angle * elevonDeflectionToForceGain * -1.0f * distanceYFromCGElevonsAbsv +   elevon2Angle * elevonDeflectionToForceGain * 1.0f * distanceYFromCGElevonsAbsv;
 
         residualElevonMomentX = desiredMomentX - estimatedAttainedElevonMomentX;
         residualElevonMomentY = desiredMomentY - estimatedAttainedElevonMomentY;
@@ -798,20 +838,31 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         effectors.elevon1Angle = elevon1Angle;
         effectors.elevon2Angle = elevon2Angle;
 
+        AP::logger().Write("BELE", "TimeUS,q,rMom,pMom,elvDeflFrceGn,e1Cmd,e2Cmd,resX,resY",
+            "S--------", // units: seconds, rad/sec
+            "F00000000", // mult: 1e-6, 1e-2
+            "Qffffffff", // format: uint64_t, float
+            AP_HAL::micros64(),
+            (double)dynamicPressure,
+            (double)desiredMomentX,
+            (double)desiredMomentY,
+            (double)elevonDeflectionToForceGain,
+            (double)elevon1Angle,
+            (double)elevon2Angle,
+            (double)residualElevonMomentX,
+            (double)residualElevonMomentY
+            );
+
         //TEST:  //NOT TESTED YET!
         //Have the motors do what the controls surfaces cannot.
         desiredMomentX = residualElevonMomentX; 
         desiredMomentY = residualElevonMomentY; 
 
 
-
-
         //THIS IS THE WRONG WAY TO DO IT!
 
         //we should calculate the maximum moment that the surfaces can generate given the present dynamic pressure, then compare to the required moment, then
         //calculate the residual moment, not residual angle!
-
-
 
 
         //Calculate forward/aft motor thurst(force) distribution from the total body Z force desired and the desired pitching moment.
