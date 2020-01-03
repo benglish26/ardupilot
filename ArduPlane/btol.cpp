@@ -52,10 +52,11 @@ extern const AP_HAL::HAL& hal;
 #define MTV_MAX_COMMANDABLE_TILT_ACCELERATION_IN_MSS 20.0f
 #define MTV_MIN_COMMANDABLE_TILT_ACCELERATION_IN_MSS 0.0f
 
-#define MOTOR_12_DEFAULT_MAX_THRUST_N 7.0f//8.0
-#define MOTOR_3_DEFAULT_MAX_THRUST_N 3.0f//3.0f
+#define MOTOR_12_DEFAULT_MAX_THRUST_N 8.0f//7.0f//8.0
+#define MOTOR_3_DEFAULT_MAX_THRUST_N 3.5f//3.0f
 #define TOP_OF_TRANSITION_DEFAULT_DYNAMIC_PRESSURE 200.0f //N/m^2 or Pa
 #define DEFAULT_VERTICAL_ACCELERATION_THRESHOLD_TO_CONSIDER_AIRCRAFT_IN_HOVER -8.0f //m/s/s
+#define DEFAULT_AIRCRAFT_MASS_IN_KG 0.950f
 
 #define MOTOR_CONTROL_MIN_VALUE 1000
 #define MOTOR_CONTROL_MAX_VALUE 2000
@@ -110,7 +111,7 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
     AP_GROUPINFO("M3_MXTHRST",        12, BTOL_Controller, motor3MaxThrust,        MOTOR_3_DEFAULT_MAX_THRUST_N),
     AP_GROUPINFO("TOP_TRAN_Q",        13, BTOL_Controller, topOfTransitionDynamicPressure,        TOP_OF_TRANSITION_DEFAULT_DYNAMIC_PRESSURE),
     AP_GROUPINFO("HOV_AC_THR",        14, BTOL_Controller, verticalAccelerationThresholdToConsiderAircraftInHover,        DEFAULT_VERTICAL_ACCELERATION_THRESHOLD_TO_CONSIDER_AIRCRAFT_IN_HOVER),
-
+    AP_GROUPINFO("MASS_KG",        15, BTOL_Controller, aircraftMassInKg,        DEFAULT_AIRCRAFT_MASS_IN_KG),
 
 	AP_GROUPEND
 };
@@ -119,6 +120,18 @@ void Plane::update_btol() {  //50Hz
     //take pilot input
     //get the rc input and map them to a range of -1.0 to +1.0;
     //TODO: Add in a something which zeros the values if the incoming raw signal is zero.
+	static uint32_t _last_t_ms = 0;
+    uint32_t tnow_ms = AP_HAL::millis(); //this should be micros if we want to see 400Hz
+	uint32_t dt_ms = tnow_ms - _last_t_ms;
+	if (_last_t_ms == 0 || dt_ms > 1000) {
+		dt_ms = 0;  //presently this is being logged as 20, which means we are running at 50Hz
+	}
+	_last_t_ms = tnow_ms;
+
+
+
+
+
    float rcCommandInputPitchStickAft = 0;
    float rcCommandInputRollStickRight = 0;
    float rcCommandInputYawStickRight = 0;
@@ -157,24 +170,14 @@ void Plane::update_btol() {  //50Hz
     g2.btolController.setDesiredRollAttitude(rcCommandInputRollStickRight * g2.btolController.getRollAttitudeCommandGain());
     //Plane::btolController.setDesiredYawRate(0.0f);//heading rate...
     
-    g2.btolController.setCommandedPitchRate(rcCommandInputPitchStickAft * g2.btolController.getPitchRateCommandGain()); //TODO: temporary gain placeholders.
+    g2.btolController.setCommandedPitchRate(rcCommandInputPitchStickAft * g2.btolController.getPitchRateCommandGain());
     g2.btolController.setCommandedRollRate(rcCommandInputRollStickRight * g2.btolController.getRollRateCommandGain());
     g2.btolController.setCommandedYawRate(rcCommandInputYawStickRight * g2.btolController.getYawRateCommandGain()); 
 
     g2.btolController.setDesiredPassthroughAngularAccelerationPitch(rcCommandInputPitchStickAft * 1.0f);
     g2.btolController.setDesiredPassthroughAngularAccelerationRoll(rcCommandInputRollStickRight * 1.0f);
     g2.btolController.setDesiredPassthroughAngularAccelerationYaw(rcCommandInputYawStickRight * 1.0f); //TODO: these are temporary gain placeholders.
-//https://github.com/ArduPilot/ardupilot/blob/master/libraries/AP_Logger/LogStructure.h#L42
-//https://ardupilot.org/dev/docs/code-overview-adding-a-new-log-message.html
-    AP::logger().Write("BCMD", "TimeUS,PitchRate,RollRate,YawRate",
-                   "SEEE", // units: seconds, rad/sec
-                   "F000", // mult: 1e-6, 1e-2
-                   "Qfff", // format: uint64_t, float
-                   AP_HAL::micros64(),
-                   (double)rcCommandInputPitchStickAft * g2.btolController.getPitchRateCommandGain(),
-                   (double)rcCommandInputRollStickRight * g2.btolController.getRollRateCommandGain(),
-                   (double)rcCommandInputYawStickRight * g2.btolController.getYawRateCommandGain()
-                   );
+
 
     //Todo: this should be a state machine.  This is a bit hacky, setting it every cycle.
     if(hal.rcin->read(RC_CHANNEL_NUMBER_FOR_ARM_SWITCH) > 1600 && g2.btolController.getArmedState() != 1)
@@ -205,7 +208,7 @@ void Plane::update_btol() {  //50Hz
     {
         g2.btolController.setRegulatorModeState(CONTROLLER_STATE_REGULATOR_MODE_PASSTHROUGH);
         gcs().send_text(MAV_SEVERITY_CRITICAL, "MODE PASS THROUGH");
-        hal.console->printf("Number = %f\n",g2.btolController.getRegulatorModeState());
+        hal.console->printf("Mode Number = %i\n",g2.btolController.getRegulatorModeState());
         
         //https://ardupilot.org/dev/docs/code-overview-adding-a-new-log-message.html
        // AP::logger().Write("BSYS", "TimeUS,Mode", "QI",
@@ -224,7 +227,21 @@ void Plane::update_btol() {  //50Hz
     }
 
 
-
+//https://github.com/ArduPilot/ardupilot/blob/master/libraries/AP_Logger/LogStructure.h#L42
+//https://ardupilot.org/dev/docs/code-overview-adding-a-new-log-message.html
+    AP::logger().Write("BCMD", "TimeUS,dt_ms,PitchRate,RollRate,YawRate,modeSw,mode,arm",
+                   "SSEEE---", // units: seconds, rad/sec
+                   "F0000000", // mult: 1e-6, 1e-2
+                   "QIfffhhh", // format: uint64_t, float
+                   AP_HAL::micros64(),
+                   dt_ms,
+                   (double)rcCommandInputPitchStickAft * g2.btolController.getPitchRateCommandGain(),
+                   (double)rcCommandInputRollStickRight * g2.btolController.getRollRateCommandGain(),
+                   (double)rcCommandInputYawStickRight * g2.btolController.getYawRateCommandGain(),
+                   modeSwitchValue,
+                   g2.btolController.getRegulatorModeState(),
+                   g2.btolController.getArmedState()
+                   );
     //calculate roll atttiude
 
     //calculate heading rate
@@ -255,18 +272,26 @@ void Plane::initialize_btol(){
    hal.console->printf("initialize_btol\n");
 }
 
- //Presently running at 400Hz.  See ArduPlane.cpp :   SCHED_TASK(btol_stabilize,         400,   200),  //blake added.
+ //TODO: Not actually running at 400!  Running at 50Hz....Need to fix!  Presently running at 400Hz.  See ArduPlane.cpp :   SCHED_TASK(btol_stabilize,         400,   200),  //blake added.
 void Plane::btol_stabilize() {   
 
     //Plane.ahrs.roll_sensor 
     //ahrs.get_roll();  //    // integer Euler angles (Degrees * 100)   //int32_t roll_sensor; 
-	static uint32_t _last_t;
-    uint32_t tnow = AP_HAL::millis();
-	uint32_t dt = tnow - _last_t;
-	if (_last_t == 0 || dt > 1000) {
-		dt = 0;
+	static uint32_t _last_t_ms = 0;
+    uint32_t tnow_ms = AP_HAL::millis(); //this should be micros if we want to see 400Hz
+	uint32_t dt_ms = tnow_ms - _last_t_ms;
+	if (_last_t_ms == 0 || dt_ms > 1000) {
+		dt_ms = 0;  //presently this is being logged as 20, which means we are running at 50Hz
 	}
-	_last_t = tnow;
+	_last_t_ms = tnow_ms;
+
+    static uint32_t _last_t_us = 0; //just added equal to zero.
+    uint32_t tnow_us = AP_HAL::micros(); //this should be micros if we want to see 400Hz
+	uint32_t dt_us = tnow_us - _last_t_us;
+	if (_last_t_us == 0 || dt_us > 10000) {
+		dt_us = 0;
+	}
+	_last_t_us = tnow_us;
 
 
 
@@ -353,15 +378,18 @@ void Plane::btol_stabilize() {
     hal.rcout->write(CH_8, servoControlValueMotor3);
     hal.rcout->push();  //will need to use: SRV_Channels::push(); or parts of it when we use BL Heli or D-shot!
 
+    static uint32_t functionTime_us = 0; //this way we include the time it takes to log.
 
 //https://github.com/ArduPilot/ardupilot/blob/master/libraries/AP_Logger/LogStructure.h#L42
 //https://ardupilot.org/dev/docs/code-overview-adding-a-new-log-message.html
-    AP::logger().Write("BSTB", "TimeUS,deltaT,c1,c2,c3,c4,c5,c6,c7,c8",
-                   "SS--------", // units: seconds, rad/sec
-                   "F000000000", // mult: 1e-6, 1e-2
-                   "QIhhhhhhhh", // format: uint64_t, float
+    AP::logger().Write("BSTB", "TimeUS,dt_ms,dt_us,ft_us,c1,c2,c3,c4,c5,c6,c7,c8",
+                   "SSSS--------", // units: seconds, rad/sec
+                   "F00000000000", // mult: 1e-6, 1e-2
+                   "QIIIhhhhhhhh", // format: uint64_t, float
                    AP_HAL::micros64(),
-                   dt,
+                   dt_ms,
+                   dt_us,
+                   functionTime_us,
                    servoControlValueElevon1,
                    servoControlValueElevon2,
                    servoControlValueTilt1,
@@ -371,8 +399,10 @@ void Plane::btol_stabilize() {
                    servoControlValueMotor2,
                    servoControlValueMotor3
                    );
-}
 
+
+    functionTime_us = AP_HAL::micros() - tnow_us; //this way we include the time it takes to log.
+}
 
 float BTOL_Controller::getControlSurfaceForce(float deflectionAngleInRadians, float areaInM2, float dynamicPressureInPa)
 {
@@ -404,7 +434,6 @@ float BTOL_Controller::getInferredTransitionRatio(float verticalComponentOfAccel
     //float accelerationDueToGravity = 9.81;
     //using body axis, because that's what the pilot has control over.
     //"UP" direction is negative in the body frame coordinate system.
-
     float hoverAccelerationDueToGravity = -9.0;//-9.81;
     if(verticalAccelerationThresholdForHover < -2.0f && verticalAccelerationThresholdForHover > -12.0f) //chec for Div 0 and polarity
     {
@@ -448,21 +477,21 @@ float BTOL_Controller::getInferredDynamicPressureFromTransitionRatio(float infer
 }
 
 
-int BTOL_Controller::getRegulatorModeState(void)
+int16_t BTOL_Controller::getRegulatorModeState(void)
 {
     return state.regulatorMode;
 }
-int BTOL_Controller::setRegulatorModeState(int desiredState)
+int16_t BTOL_Controller::setRegulatorModeState(int16_t desiredState)
 {
     state.regulatorMode = desiredState;
     return state.regulatorMode;
 }
 
-int BTOL_Controller::getArmedState(void)
+int16_t BTOL_Controller::getArmedState(void)
 {
     return state.armedState;
 }
-int BTOL_Controller::setArmedState(int desiredState)
+int16_t BTOL_Controller::setArmedState(int16_t desiredState)
 {
     //Todo: check for validity of input.
     state.armedState = desiredState;
@@ -583,6 +612,39 @@ int16_t BTOL_Controller::calculateServoValueFromAngle(float desiredAngle, float 
     return motorForceDemand;
  }
 
+float BTOL_Controller::getAugmentedStabilityRatioWithinAngleRange(float angleRad, float innerAngleRadPositive, float outerAngleRadPositive)
+{
+    //TODO: check to make sure inner and outer angles are valid and not equal.
+    //TODO: check for the inner angle = zero case.
+    //TODO: guard against bad inputs.
+    #define MIN_ANGLE_SPREAD_TOLERENCE_FOR_STABILITY_ZONE 0.1 //6 degrees.
+    if(innerAngleRadPositive > (outerAngleRadPositive - MIN_ANGLE_SPREAD_TOLERENCE_FOR_STABILITY_ZONE)) return 0; //don't do calculations if the angle spread is too small!
+
+    //provie a restoring response if the value is within the range, positive if in a negative area, and negative if in a positive area.  
+    //This will allow us to talor the stability zones based on the phase of flight.
+    float reactiveAngleRangeMagnitude = outerAngleRadPositive - innerAngleRadPositive;
+    float angleMagnitude = fabs(angleRad);
+    float angleRatio = 0.0;
+    if(angleMagnitude <= innerAngleRadPositive)
+    {
+        //the angle is between the +- inner angles, so no stabilization.
+        //return 0;
+    }else{
+        //angle is greater than innerAngle
+        angleRatio = (angleMagnitude - innerAngleRadPositive)/(reactiveAngleRangeMagnitude);
+        
+        if(angleRad > 0.0f)
+        {
+            angleRatio = -angleRatio; //provied the restoring ratio.
+        }
+    }
+
+    //between the +-inner angle? (might be zero!)
+    //between the +-inner and outer angles
+    //beyond the outer angles. (cap?)
+
+    return angleRatio;
+}
 
 
 EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
@@ -607,14 +669,37 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
 
     if(state.regulatorMode == CONTROLLER_STATE_REGULATOR_MODE_ATTITUDE)
     {
-        float attitudeErrorRoll = command.targetRollAttitude - _ahrs.get_roll();
-        float attitudeErrorPitch = command.targetPitchAttitude - _ahrs.get_pitch();
+      //  Attitude Command ...will be useful later...need to figure out how to get both!
+      //  float attitudeErrorRoll = command.targetRollAttitude - _ahrs.get_roll();
+      //  float attitudeErrorPitch = command.targetPitchAttitude - _ahrs.get_pitch();
 
-        float targetRollRate = attitudeErrorRoll * rollAttitudeErrorToRollRateGain.get(); //this could be an issue, also.  TODO
-        float targetPitchRate = attitudeErrorPitch * pitchAttitudeErrorToPitchRateGain.get(); //not sure if this is the right way to do this!
+      //  float targetRollRate = attitudeErrorRoll * rollAttitudeErrorToRollRateGain.get(); //this could be an issue, also.  TODO
+      //  float targetPitchRate = attitudeErrorPitch * pitchAttitudeErrorToPitchRateGain.get(); //not sure if this is the right way to do this!
+
+
+
+        //could try summing the demanded rates and the attitude stability instead of this explicit values?
+        float targetRollRate = command.targetRollRate + getAugmentedStabilityRatioWithinAngleRange(_ahrs.get_roll(), 0.0f, 1.0f) * getRollRateCommandGain();
+        float targetPitchRate = command.targetPitchRate + getAugmentedStabilityRatioWithinAngleRange(_ahrs.get_pitch(), 0.0f, 1.0f) * getPitchRateCommandGain();
+
+
         //get_rate_roll_pid()
         desiredMomentX = get_rate_roll_pid().update_all(targetRollRate,_ahrs.get_gyro().x, false);
         desiredMomentY = get_rate_pitch_pid().update_all(targetPitchRate,_ahrs.get_gyro().y, false);
+
+        //float lateralAcceleration = _ahrs.get_accel().y; //lateral Acceleration.
+
+        //_ahrs.get_accel(). adsaf
+
+        // Get body frame accel vector
+        //Vector3f initAccVec;
+        //uint8_t counter = 0;
+        //initAccVec = _ins.get_accel();
+        //??????  https://ardupilot.org/plane/docs/roll-pitch-controller-tuning.html#tuning-the-yaw-damper  look here!
+        //might not have enought side area to matter...!
+
+
+        //perhaps this should be pilot input + rate stability?  as we need to be able to remove rate stability in forward flight and apply some turn coordination, if needed.
         desiredMomentZ = get_rate_yaw_pid().update_all(command.targetYawRate,_ahrs.get_gyro().z, false);
     }
 
@@ -634,7 +719,6 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
 
     //calculate desired moments
         //calculate reponse to the rate errors.
-
         //overwrite values if in passthrough test mode.
         if(state.regulatorMode == CONTROLLER_STATE_REGULATOR_MODE_PASSTHROUGH)
         {

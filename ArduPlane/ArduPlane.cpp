@@ -42,8 +42,8 @@ const AP_Scheduler::Task Plane::scheduler_tasks[] = {
     SCHED_TASK(set_servos,            400,    100),
 #endif   
 #if BTOL_ENABLED == ENABLED
-    SCHED_TASK(update_btol,            50,    400),  //blake added.  Small value for 
-    SCHED_TASK(btol_stabilize,         400,   200),  //blake added.
+    SCHED_TASK(update_btol,            50,    400),  //blake added.
+    SCHED_TASK(btol_stabilize,         400,   200),  //blake added, Need to change SCHED_LOOP_RATE AP parameter to 400Hz to enable that! not running at 400Hz!  Running at 50Hz!, presently running at <200us...about 170, not including the log time.
 #endif
     //SCHED_TASK(stabilize,             400,    100),
 

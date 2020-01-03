@@ -101,7 +101,7 @@ struct ControllerState
 {
     int regulatorMode; //1 = passthrough, 2 = rate command, 3 = attitude command
     int commandMode; //0 = Manual vectored thrust.
-    int armedState; //0 = disarmed, 1 = armed.
+    int16_t armedState; //0 = disarmed, 1 = armed.
     //int usePolarTiltInput;
     
 };
@@ -232,10 +232,10 @@ public:
     BTOL_Controller(const BTOL_Controller &other) = delete;
     BTOL_Controller &operator=(const BTOL_Controller&) = delete;
 
-    int getRegulatorModeState(void);
-    int setRegulatorModeState(int desiredState);
-    int getArmedState(void);
-    int setArmedState(int desiredState);
+    int16_t getRegulatorModeState(void);
+    int16_t setRegulatorModeState(int16_t desiredState);
+    int16_t getArmedState(void);
+    int16_t setArmedState(int16_t desiredState);
     void setDesiredPitchAttitude(float pitchAttitudeTarget);
     void setDesiredRollAttitude(float rollAttitudeTarget);
     //void setDesiredYawRate(float yawRateTarget);
@@ -255,6 +255,7 @@ public:
     float getInferredDynamicPressureFromTransitionRatio(float inferredTransitionRatio, float dynamicPressureAtTopOfTransition);
     float getInferredTransitionRatio(float verticalComponentOfAcceleration,  float verticalAccelerationThresholdForHover); //1.0 = transitioned, 0.0 = hover
     float getControlSurfaceForce(float deflectionAngleInRadians, float areaInM2, float dynamicPressureInPa);
+    float getAugmentedStabilityRatioWithinAngleRange(float angleRad, float innerAngleRadPositive, float outerAngleRadPositive);
 
     int16_t calculateServoValueFromAngle(float desiredAngle, float minimumAngle, float maximumAngle, int16_t minimumPWM, int16_t maximumPWM);
     float calculateMotorThrustBasedOnTiltAngle(float attainedTiltAngle, float desiredForceForward, float desiredForceUp, float satisfactionAngleLow, float satisfactionAngleHigh); //use this function carefully to avoid div/0!
@@ -314,6 +315,7 @@ private:
     AP_Float manualTiltCommandMappingPolarity;
     AP_Float topOfTransitionDynamicPressure;
     AP_Float verticalAccelerationThresholdToConsiderAircraftInHover;
+    AP_Float aircraftMassInKg;
 
 
     float pitchRateError;
