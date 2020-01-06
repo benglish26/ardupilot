@@ -61,6 +61,9 @@ extern const AP_HAL::HAL& hal;
 #define MOTOR_CONTROL_MIN_VALUE 1000
 #define MOTOR_CONTROL_MAX_VALUE 2000
 #define MOTOR_CONTROL_RANGE (MOTOR_CONTROL_MAX_VALUE-MOTOR_CONTROL_MIN_VALUE)
+#define DEFAULT_THRUST_MAX_MOTORS_12 8.0f //Newtons
+#define DEFAULT_THRUST_MAX_MOTOR_3 3.5f //Newtons
+#define DEFAULT_AIRCRAFT_CENTER_OF_MASS_METERS -0.053f //Meters
 
 const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
 	    // parameters from parent vehicle
@@ -102,7 +105,6 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
 	// @Increment: 0.05
 	// @User: User
 	AP_GROUPINFO("RATTICMDG",        6, BTOL_Controller, rollAttitudeCommandGain,        0.5f),
-
     AP_GROUPINFO("ROLL_ATR",      7, BTOL_Controller, rollAttitudeErrorToRollRateGain,       1.0f), //attitude error to rate gain.
     AP_GROUPINFO("PTCH_ATR",      8, BTOL_Controller, pitchAttitudeErrorToPitchRateGain,       1.0f),
     AP_GROUPINFO("MTV_TLT_DIR",      9, BTOL_Controller, manualTiltCommandMappingPolarity,       1.0f),
@@ -112,6 +114,7 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
     AP_GROUPINFO("TOP_TRAN_Q",        13, BTOL_Controller, topOfTransitionDynamicPressure,        TOP_OF_TRANSITION_DEFAULT_DYNAMIC_PRESSURE),
     AP_GROUPINFO("HOV_AC_THR",        14, BTOL_Controller, verticalAccelerationThresholdToConsiderAircraftInHover,        DEFAULT_VERTICAL_ACCELERATION_THRESHOLD_TO_CONSIDER_AIRCRAFT_IN_HOVER),
     AP_GROUPINFO("MASS_KG",        15, BTOL_Controller, aircraftMassInKg,        DEFAULT_AIRCRAFT_MASS_IN_KG),
+    AP_GROUPINFO("CG_METERS",        16, BTOL_Controller, centerOfMassLocationX,        DEFAULT_AIRCRAFT_CENTER_OF_MASS_METERS),
 
 	AP_GROUPEND
 };
@@ -259,6 +262,11 @@ void Plane::update_btol() {  //50Hz
 
 void Plane::initialize_btol(){
     hal.rcout->set_default_rate(50);
+    hal.rcout->set_freq(0xF, 400);  //for the first four channels?  0xF = 1111  Testing!  Works!  
+  //  hal.rcout->set_output_mode(CH6, MODE_PWM_DSHOT_300)
+
+    //hal.rcout->set_freq(CH6, 400);
+
     hal.rcout->enable_ch(CH_1);
     hal.rcout->enable_ch(CH_2);
     hal.rcout->enable_ch(CH_3);
@@ -267,9 +275,31 @@ void Plane::initialize_btol(){
     hal.rcout->enable_ch(CH_6);
     hal.rcout->enable_ch(CH_7);
     hal.rcout->enable_ch(CH_8);
+
+
+
+        /*
+      output modes. Allows for support of PWM, oneshot and dshot 
+     */
+    /*enum output_mode {
+        MODE_PWM_NONE,
+        MODE_PWM_NORMAL,
+        MODE_PWM_ONESHOT,
+        MODE_PWM_ONESHOT125,
+        MODE_PWM_BRUSHED,
+        MODE_PWM_DSHOT150,
+        MODE_PWM_DSHOT300,
+        MODE_PWM_DSHOT600,
+        MODE_PWM_DSHOT1200,
+        MODE_NEOPIXEL,      // same as MODE_PWM_DSHOT at 800kHz but it's an LED
+    };
+    virtual void    set_output_mode(uint16_t mask, enum output_mode mode) {}*/
+
      //   hal.rcout->set_default_rate(50);
    // hal.rcout->set_output_mode(CH_1, 
    hal.console->printf("initialize_btol\n");
+
+   
 }
 
  //TODO: Not actually running at 400!  Running at 50Hz....Need to fix!  Presently running at 400Hz.  See ArduPlane.cpp :   SCHED_TASK(btol_stabilize,         400,   200),  //blake added.
@@ -286,9 +316,10 @@ void Plane::btol_stabilize() {
 	_last_t_ms = tnow_ms;
 
     static uint32_t _last_t_us = 0; //just added equal to zero.
+
     uint32_t tnow_us = AP_HAL::micros(); //this should be micros if we want to see 400Hz
-	uint32_t dt_us = tnow_us - _last_t_us;
-	if (_last_t_us == 0 || dt_us > 10000) {
+	uint32_t dt_us = tnow_us - _last_t_us;  //should be 2500 at 400Hz.
+	if (_last_t_us == 0 || dt_us > 100000) {
 		dt_us = 0;
 	}
 	_last_t_us = tnow_us;
@@ -325,25 +356,12 @@ void Plane::btol_stabilize() {
     }else if(deltaAmount < -SERVO_CONTROL_VALUE_1_HALF_WIDTH){
         deltaStep = DELTA_VALUE_PER_TIMESTEP;
     }
-  //  int16_t servoControlValue1 = SERVO_CONTROL_CENTER_VALUE + deltaAmount;
-   // SRV_Channels::set_output_pwm_chan(4, servoControlValue1);  //this doesn't work.
-
-    //SRV_Channels::output_ch_all(); //this 
- //   hal.rcout->enable_ch(0);
- //   hal.rcout->enable_ch(1);
- //   hal.rcout->enable_ch(2);
- //   hal.rcout->enable_ch(3);
- //   hal.rcout->set_default_rate(50);
-   // hal.rcout->set_output_mode()
-
-    // Get body rate vector (radians/sec)
-	//float omega_x = _ahrs.get_gyro().x;
-  //  float omega_x =  ahrs.get_gyro().x;
 
     int16_t servoControlValue5 = SERVO_CONTROL_CENTER_VALUE;// + constrain_int16(int16_t(rcCommandInputPitchStickAft*500), -500, 500);  //works (float)
 
     EffectorList effectorCommands;
-    effectorCommands = g2.btolController.calculateEffectorPositions( PID_400HZ_DT); //this delta time is wrong, of course!  Should be dynamicly populated.
+    float deltaTimeSecondsForPID = ((float)dt_us)/1000000.0f;
+    effectorCommands = g2.btolController.calculateEffectorPositions(deltaTimeSecondsForPID); //PID_400HZ_DT); //this delta time is wrong, of course!  Should be dynamicly populated.
 
     int16_t servoControlValueElevon1 = g2.btolController.calculateServoValueFromAngle(effectorCommands.elevon1Angle, AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MIN_ANGLE, AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MAX_ANGLE, AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MIN_ANGLE_PWM, AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MAX_ANGLE_PWM);
     int16_t servoControlValueElevon2 = g2.btolController.calculateServoValueFromAngle(effectorCommands.elevon2Angle, AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MIN_ANGLE, AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MAX_ANGLE, AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MIN_ANGLE_PWM, AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MAX_ANGLE_PWM);
@@ -356,7 +374,6 @@ void Plane::btol_stabilize() {
     int16_t servoControlValueMotor2 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor2Thrust / g2.btolController.getMotor12MaxThrust())* MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);
     int16_t servoControlValueMotor3 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor3Thrust / g2.btolController.getMotor3MaxThrust()) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);  //isn't working.  Is stuck at 2000.
 
-
     if(g2.btolController.getArmedState() != 1)
     {
         servoControlValueMotor1 = THROTTLE_DISARMED_VALUE;
@@ -365,31 +382,43 @@ void Plane::btol_stabilize() {
     }
 
 
+
 //Need to put more protections!  better than above.
 //consider swapping the order so the motors can be in the first 4 if needed to get 400Hz update rate.
     hal.rcout->cork();  //  SRV_Channels::cork();
-    hal.rcout->write(CH_1, servoControlValueElevon1);
+    hal.rcout->write(CH_1, servoControlValueMotor1);
+    hal.rcout->write(CH_2, servoControlValueMotor2);  //not working...perhaps base zero??
+    hal.rcout->write(CH_3, servoControlValueMotor3);
+    hal.rcout->write(CH_4, servoControlValue5);
+    hal.rcout->write(CH_5, servoControlValueElevon1);
+    hal.rcout->write(CH_6, servoControlValueElevon2);
+    hal.rcout->write(CH_7, servoControlValueTilt1);
+    hal.rcout->write(CH_8, servoControlValueTilt2);
+
+
+     /*   hal.rcout->write(CH_1, servoControlValueElevon1);
     hal.rcout->write(CH_2, servoControlValueElevon2);  //not working...perhaps base zero??
     hal.rcout->write(CH_3, servoControlValueTilt1);
     hal.rcout->write(CH_4, servoControlValueTilt2);
     hal.rcout->write(CH_5, servoControlValue5);
     hal.rcout->write(CH_6, servoControlValueMotor1);
     hal.rcout->write(CH_7, servoControlValueMotor2);
-    hal.rcout->write(CH_8, servoControlValueMotor3);
+    hal.rcout->write(CH_8, servoControlValueMotor3);*/
     hal.rcout->push();  //will need to use: SRV_Channels::push(); or parts of it when we use BL Heli or D-shot!
 
     static uint32_t functionTime_us = 0; //this way we include the time it takes to log.
 
 //https://github.com/ArduPilot/ardupilot/blob/master/libraries/AP_Logger/LogStructure.h#L42
 //https://ardupilot.org/dev/docs/code-overview-adding-a-new-log-message.html
-    AP::logger().Write("BSTB", "TimeUS,dt_ms,dt_us,ft_us,c1,c2,c3,c4,c5,c6,c7,c8",
-                   "SSSS--------", // units: seconds, rad/sec
-                   "F00000000000", // mult: 1e-6, 1e-2
-                   "QIIIhhhhhhhh", // format: uint64_t, float
+    AP::logger().Write("BSTB", "t_us,dt_ms,dt_us,ft_us,dt_PID,c1,c2,c3,c4,c5,c6,c7,c8",
+                   "SSSSS--------", // units: seconds, rad/sec
+                   "F000000000000", // mult: 1e-6, 1e-2
+                   "QIIIfhhhhhhhh", // format: uint64_t, float
                    AP_HAL::micros64(),
                    dt_ms,
                    dt_us,
                    functionTime_us,
+                   (double) deltaTimeSecondsForPID,
                    servoControlValueElevon1,
                    servoControlValueElevon2,
                    servoControlValueTilt1,
@@ -399,6 +428,21 @@ void Plane::btol_stabilize() {
                    servoControlValueMotor2,
                    servoControlValueMotor3
                    );
+
+AP::logger().Write("BEFF", "t_us,m1,m2,m3,e1,e2,t1,t2,mass",
+                   "S--------", // units: seconds, rad/sec
+                   "F00000000", // mult: 1e-6, 1e-2
+                   "Qffffffff", // format: uint64_t, float
+                   AP_HAL::micros64(),
+                   (double)effectorCommands.motor1Thrust,
+                   (double)effectorCommands.motor2Thrust,
+                   (double)effectorCommands.motor3Thrust,
+                   (double)effectorCommands.elevon1Angle,
+                   (double)effectorCommands.elevon2Angle,
+                   (double)effectorCommands.tilt1Angle,
+                   (double)effectorCommands.tilt2Angle,
+                   (double)g2.btolController.getAircraftMass()
+                    );
 
 
     functionTime_us = AP_HAL::micros() - tnow_us; //this way we include the time it takes to log.
@@ -646,6 +690,27 @@ float BTOL_Controller::getAugmentedStabilityRatioWithinAngleRange(float angleRad
     return angleRatio;
 }
 
+//TODO: Look up table function,
+
+float BTOL_Controller::getRangeRatio(float value, float min, float max)
+{
+    float ratio = 0.0;
+    if(max < min)
+    {
+        return 0.0f;
+    }
+
+    if(value<min)
+    {
+        ratio = 0.0f;
+    }else if(value>max){
+        ratio = 1.0f;
+    }else{
+        ratio = (value-min)/(max-min);
+    }
+
+    return ratio;
+}
 
 EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
 {
@@ -677,10 +742,27 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
       //  float targetPitchRate = attitudeErrorPitch * pitchAttitudeErrorToPitchRateGain.get(); //not sure if this is the right way to do this!
 
 
+       // float BTOL_Controller::getRangeRatio(float value, float min, float max);
+
+        float dynamicPressureRatio = getRangeRatio(dynamicPressure, 0.0f, getTopOfTransitionDynamicPressure());
+        #define FORWARD_FLIGHT_ROLL_INNER_ANGLE 0.698132f //40 degrees
+        #define FORWARD_FLIGHT_ROLL_OUTER_ANGLE 1.5708f   //90 degrees
+        #define HOVER_FLIGHT_ROLL_ANGLE_OUTER 1.0f //57 degrees
+        float innerStabilizationAngleRoll = dynamicPressureRatio * FORWARD_FLIGHT_ROLL_INNER_ANGLE;
+        float outerStabilizationAngleRoll = dynamicPressureRatio * (FORWARD_FLIGHT_ROLL_OUTER_ANGLE - HOVER_FLIGHT_ROLL_ANGLE_OUTER) + HOVER_FLIGHT_ROLL_ANGLE_OUTER;
+
+        #define FORWARD_FLIGHT_PITCH_INNER_ANGLE 0.698132f //40 degrees
+        #define FORWARD_FLIGHT_PITCH_OUTER_ANGLE 1.5708f //90 degrees
+        #define HOVER_FLIGHT_PITCH_ANGLE_OUTER 1.0f //57 degrees
+        float innerStabilizationAnglePitch = dynamicPressureRatio * FORWARD_FLIGHT_PITCH_INNER_ANGLE;
+        float outerStabilizationAnglePitch = dynamicPressureRatio * (FORWARD_FLIGHT_PITCH_OUTER_ANGLE - HOVER_FLIGHT_PITCH_ANGLE_OUTER) + HOVER_FLIGHT_PITCH_ANGLE_OUTER;
+
+        float targetRollRate = command.targetRollRate + getAugmentedStabilityRatioWithinAngleRange(_ahrs.get_roll(), innerStabilizationAngleRoll, outerStabilizationAngleRoll) * getRollRateCommandGain();
+        float targetPitchRate = command.targetPitchRate + getAugmentedStabilityRatioWithinAngleRange(_ahrs.get_pitch(), innerStabilizationAnglePitch, outerStabilizationAnglePitch) * getPitchRateCommandGain();
 
         //could try summing the demanded rates and the attitude stability instead of this explicit values?
-        float targetRollRate = command.targetRollRate + getAugmentedStabilityRatioWithinAngleRange(_ahrs.get_roll(), 0.0f, 1.0f) * getRollRateCommandGain();
-        float targetPitchRate = command.targetPitchRate + getAugmentedStabilityRatioWithinAngleRange(_ahrs.get_pitch(), 0.0f, 1.0f) * getPitchRateCommandGain();
+    //    float targetRollRate = command.targetRollRate + getAugmentedStabilityRatioWithinAngleRange(_ahrs.get_roll(), 0.0f, 1.0f) * getRollRateCommandGain();
+    //    float targetPitchRate = command.targetPitchRate + getAugmentedStabilityRatioWithinAngleRange(_ahrs.get_pitch(), 0.0f, 1.0f) * getPitchRateCommandGain();
 
 
         //get_rate_roll_pid()
@@ -743,8 +825,8 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
             desiredAccelerationX = command.targetAccelerationX;  //Right now commanded directly by pilot
         }
 
-        float requiredForceZ = desiredAccelerationZ * aircraftProperties.totalMass; //Newtons
-        float requiredForceX = desiredAccelerationX * aircraftProperties.totalMass; //Newtons
+        float requiredForceZ = desiredAccelerationZ * getAircraftMass();//aircraftProperties.totalMass; //Newtons
+        float requiredForceX = desiredAccelerationX * getAircraftMass();//aircraftProperties.totalMass; //Newtons
 
     //calculate effector outputs
 
@@ -758,7 +840,7 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         #define ELEVON_COEF_OF_LIFT_PER_DEFLECTION 4.0f //(2*PI?)
 
         //TODO: have control surface movement become more limited as we get into hover?  Ie: shape the up and down limits?
-        float distanceXFromCGElevonsAbsv = fabs(aircraftProperties.elevon1LocationX - aircraftProperties.centerOfMassLocationX);//will be positive //should I make this an abs
+        float distanceXFromCGElevonsAbsv = fabs(aircraftProperties.elevon1LocationX - getCenterOfMassLocationX()); //aircraftProperties.centerOfMassLocationX);//will be positive //should I make this an abs
         float distanceYFromCGElevonsAbsv = fabs(aircraftProperties.elevon1LocationY - aircraftProperties.centerOfMassLocationY);//will be positive //should I make these ABS?  and understand that they are symetric?
 
         //this is assuming symetrical elevons, and symetrical deflections.  TODO: protect against negative values.
@@ -840,8 +922,8 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         totalMomentForward = desiredMomentY;  //there is no -1.0 here because the moment arms are defined in such a way that the moment produced is negative!
 
         //TODO: need a divide by zero check here.  Make sure that D12 and D3 are not equal!
-        float distanceXFromCGMotors12 = aircraftProperties.motor1LocationX - aircraftProperties.centerOfMassLocationX;
-        float distanceXFromCGMotor3 = aircraftProperties.motor3LocationX - aircraftProperties.centerOfMassLocationX;
+        float distanceXFromCGMotors12 = aircraftProperties.motor1LocationX - getCenterOfMassLocationX();// aircraftProperties.centerOfMassLocationX;
+        float distanceXFromCGMotor3 = aircraftProperties.motor3LocationX - getCenterOfMassLocationX(); //aircraftProperties.centerOfMassLocationX;
 
         forceUpMotors1and2 = (totalMomentForward - distanceXFromCGMotor3 * totalForceUp) / (distanceXFromCGMotors12 - distanceXFromCGMotor3); //this appears to be working...pitch seems to be backwards, but total force up is working, which means required force Z and pitch moment need to be reversed upstream of here.. could also be an transmitter reversing issue.
         forceUpMotor3 = (distanceXFromCGMotors12 * totalForceUp - totalMomentForward) / (distanceXFromCGMotors12 - distanceXFromCGMotor3); //this appears to be working...don't know about direction/magnitude...

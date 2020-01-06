@@ -186,7 +186,7 @@ public:
         command.passthroughAngularAccelerationPitch = 0.0f;
         command.passthroughAngularAccelerationYaw = 0.0f;
 
-        aircraftProperties.totalMass = 1.0;  //approximaton.  Make tuning parameter figure out actual value.
+        aircraftProperties.totalMass = getAircraftMass();//1.0;  //approximaton.  Make tuning parameter figure out actual value.  Don't use this!
         aircraftProperties.momentOfInertiaPitch = 1.0;  //gross approximaton.  Make tuning parameter figure out actual value.
         aircraftProperties.momentOfInertiaRoll = 1.0;  //gross approximaton.  Make tuning parameter figure out actual value.
         aircraftProperties.momentOfInertiaYaw = 1.0;  //gross approximaton.  Make tuning parameter figure out actual value.
@@ -204,7 +204,7 @@ public:
         aircraftProperties.motor3LocationZ = 0.0f;
 
 
-        aircraftProperties.centerOfMassLocationX = -0.053f;
+        aircraftProperties.centerOfMassLocationX = getCenterOfMassLocationX();//-0.053f;  //arewe using this or the aircraft properties?
         aircraftProperties.centerOfMassLocationY = 0.0f;
         aircraftProperties.centerOfMassLocationZ = 0.0f;
 
@@ -213,6 +213,7 @@ public:
 
         aircraftProperties.elevon2LocationX = -0.14512f;
         aircraftProperties.elevon2LocationY =  0.1802f;
+
 
         effectors.elevon1Angle = 0.0f;
         effectors.elevon2Angle = 0.0f;
@@ -243,6 +244,7 @@ public:
     void setDesiredAccelerationBodyZ(float aZ);
     void setDesiredTiltAngle(float tiltAngle);
     void setDesiredAccelerationAlongTiltAngle(float tiltAcceleration);
+    float getRangeRatio(float value, float min, float max);
 
     void setDesiredPassthroughAngularAccelerationRoll(float waX); //rad/s/s
     void setDesiredPassthroughAngularAccelerationPitch(float waY); //rad/s/s
@@ -292,6 +294,8 @@ public:
 
     AP_Float &getTopOfTransitionDynamicPressure(void) { return topOfTransitionDynamicPressure; } 
     AP_Float &getVerticalAccelerationThresholdToConsiderAircraftInHover(void) { return verticalAccelerationThresholdToConsiderAircraftInHover; } 
+    AP_Float &getCenterOfMassLocationX(void) { return centerOfMassLocationX; } 
+    AP_Float &getAircraftMass(void) { return aircraftMassInKg; } 
 
     // pid accessors
     AC_PID &get_rate_roll_pid() { return _pid_rate_roll; } //don't know what this does or why we need it.
@@ -316,6 +320,9 @@ private:
     AP_Float topOfTransitionDynamicPressure;
     AP_Float verticalAccelerationThresholdToConsiderAircraftInHover;
     AP_Float aircraftMassInKg;
+    AP_Float forwardMotorMaxThrust;
+    AP_Float aftMotorMaxThrust;
+    AP_Float centerOfMassLocationX; //in Meters
 
 
     float pitchRateError;
