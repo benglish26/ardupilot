@@ -323,6 +323,7 @@ private:
     AP_Float forwardMotorMaxThrust;
     AP_Float aftMotorMaxThrust;
     AP_Float centerOfMassLocationX; //in Meters
+    AP_Float motor3ThrustToTorqueCoef; //N to NM
 
 
     float pitchRateError;

@@ -64,6 +64,7 @@ extern const AP_HAL::HAL& hal;
 #define DEFAULT_THRUST_MAX_MOTORS_12 8.0f //Newtons
 #define DEFAULT_THRUST_MAX_MOTOR_3 3.5f //Newtons
 #define DEFAULT_AIRCRAFT_CENTER_OF_MASS_METERS -0.053f //Meters
+#define DEFAULT_MOTOR3_THRUST_TO_TORQUE_COEF 0.025 //NM per N thrust.
 
 const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
 	    // parameters from parent vehicle
@@ -115,6 +116,7 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
     AP_GROUPINFO("HOV_AC_THR",        14, BTOL_Controller, verticalAccelerationThresholdToConsiderAircraftInHover,        DEFAULT_VERTICAL_ACCELERATION_THRESHOLD_TO_CONSIDER_AIRCRAFT_IN_HOVER),
     AP_GROUPINFO("MASS_KG",        15, BTOL_Controller, aircraftMassInKg,        DEFAULT_AIRCRAFT_MASS_IN_KG),
     AP_GROUPINFO("CG_METERS",        16, BTOL_Controller, centerOfMassLocationX,        DEFAULT_AIRCRAFT_CENTER_OF_MASS_METERS),
+    AP_GROUPINFO("M3_TRQ_RATO",        17, BTOL_Controller, motor3ThrustToTorqueCoef,        DEFAULT_MOTOR3_THRUST_TO_TORQUE_COEF),
 
 	AP_GROUPEND
 };
@@ -381,8 +383,6 @@ void Plane::btol_stabilize() {
         servoControlValueMotor3 = THROTTLE_DISARMED_VALUE;
     }
 
-
-
 //Need to put more protections!  better than above.
 //consider swapping the order so the motors can be in the first 4 if needed to get 400Hz update rate.
     hal.rcout->cork();  //  SRV_Channels::cork();
@@ -443,6 +443,18 @@ AP::logger().Write("BEFF", "t_us,m1,m2,m3,e1,e2,t1,t2,mass",
                    (double)effectorCommands.tilt2Angle,
                    (double)g2.btolController.getAircraftMass()
                     );
+//battery.read();
+
+AP::logger().Write("BBAT", "t_us,v,v_rest,%",
+                   "S---", // units: seconds, rad/sec
+                   "F000", // mult: 1e-6, 1e-2
+                   "Qfff", // format: uint64_t, float
+                   AP_HAL::micros64(),
+                   (double)battery.voltage(),
+                   (double)battery.voltage_resting_estimate(),
+                   (double)battery.capacity_remaining_pct()
+                    );
+
 
 
     functionTime_us = AP_HAL::micros() - tnow_us; //this way we include the time it takes to log.
@@ -809,6 +821,12 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
             desiredMomentZ = command.passthroughAngularAccelerationYaw * aircraftProperties.momentOfInertiaYaw;
         }
         
+
+    //add the torque from motor3 (assuming motors 1 and 2 cancel out!)
+    float estimatedNetMotorTorqueToCancelOut = 0.0;
+    estimatedNetMotorTorqueToCancelOut = effectors.motor3Thrust * motor3ThrustToTorqueCoef;
+    desiredMomentZ = desiredMomentZ - estimatedNetMotorTorqueToCancelOut;
+
         
     //calculate desired forces
     float desiredAccelerationZ = 0.0f;
@@ -891,10 +909,10 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         effectors.elevon1Angle = elevon1Angle;
         effectors.elevon2Angle = elevon2Angle;
 
-        AP::logger().Write("BELE", "TimeUS,q,rMom,pMom,elvDeflFrceGn,e1Cmd,e2Cmd,resX,resY",
-            "S--------", // units: seconds, rad/sec
-            "FB00A0000", // mult: 1e-6, 1e-2
-            "Qffffffff", // format: uint64_t, float
+        AP::logger().Write("BELE", "TimeUS,q,rMom,pMom,elvDeflFrceGn,e1Cmd,e2Cmd,resX,resY,mM",
+            "S---------", // units: seconds, rad/sec
+            "FB00A00000", // mult: 1e-6, 1e-2
+            "Qfffffffff", // format: uint64_t, float
             AP_HAL::micros64(),
             (double)dynamicPressure,
             (double)desiredMomentX,
@@ -903,7 +921,8 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
             (double)elevon1Angle,
             (double)elevon2Angle,
             (double)residualElevonMomentX,
-            (double)residualElevonMomentY
+            (double)residualElevonMomentY,
+            (double)estimatedNetMotorTorqueToCancelOut
             );
 
         //TEST:  //NOT TESTED YET!...tested some....
