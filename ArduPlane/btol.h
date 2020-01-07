@@ -186,10 +186,10 @@ public:
         command.passthroughAngularAccelerationPitch = 0.0f;
         command.passthroughAngularAccelerationYaw = 0.0f;
 
-        aircraftProperties.totalMass = getAircraftMass();//1.0;  //approximaton.  Make tuning parameter figure out actual value.  Don't use this!
-        aircraftProperties.momentOfInertiaPitch = 1.0;  //gross approximaton.  Make tuning parameter figure out actual value.
-        aircraftProperties.momentOfInertiaRoll = 1.0;  //gross approximaton.  Make tuning parameter figure out actual value.
-        aircraftProperties.momentOfInertiaYaw = 1.0;  //gross approximaton.  Make tuning parameter figure out actual value.
+        aircraftProperties.totalMass = getAircraftMass();//1.0;  //approximaton.  Make tuning parameter and figure out actual value.  Don't use this!
+        aircraftProperties.momentOfInertiaPitch = 0.01492262208f;  //gross approximaton.  Make tuning parameter figure out actual value.
+        aircraftProperties.momentOfInertiaRoll = 0.01788486311f;  //gross approximaton.  Make tuning parameter figure out actual value.
+        aircraftProperties.momentOfInertiaYaw = 0.02870341413f;  //gross approximaton.  Make tuning parameter figure out actual value.
         
         aircraftProperties.motor1LocationX = 0.0f;
         aircraftProperties.motor1LocationY = -0.200f;
@@ -324,6 +324,7 @@ private:
     AP_Float aftMotorMaxThrust;
     AP_Float centerOfMassLocationX; //in Meters
     AP_Float motor3ThrustToTorqueCoef; //N to NM
+    AP_Float elevonCoefLiftPerDeflection;
 
 
     float pitchRateError;

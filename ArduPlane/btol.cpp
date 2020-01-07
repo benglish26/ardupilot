@@ -54,17 +54,20 @@ extern const AP_HAL::HAL& hal;
 
 #define MOTOR_12_DEFAULT_MAX_THRUST_N 8.0f//7.0f//8.0
 #define MOTOR_3_DEFAULT_MAX_THRUST_N 3.5f//3.0f
-#define TOP_OF_TRANSITION_DEFAULT_DYNAMIC_PRESSURE 200.0f //N/m^2 or Pa
-#define DEFAULT_VERTICAL_ACCELERATION_THRESHOLD_TO_CONSIDER_AIRCRAFT_IN_HOVER -8.0f //m/s/s
-#define DEFAULT_AIRCRAFT_MASS_IN_KG 0.950f
+
 
 #define MOTOR_CONTROL_MIN_VALUE 1000
 #define MOTOR_CONTROL_MAX_VALUE 2000
 #define MOTOR_CONTROL_RANGE (MOTOR_CONTROL_MAX_VALUE-MOTOR_CONTROL_MIN_VALUE)
+
+#define TOP_OF_TRANSITION_DEFAULT_DYNAMIC_PRESSURE 200.0f //N/m^2 or Pa
+#define DEFAULT_VERTICAL_ACCELERATION_THRESHOLD_TO_CONSIDER_AIRCRAFT_IN_HOVER -8.0f //m/s/s
+#define DEFAULT_AIRCRAFT_MASS_IN_KG 0.920f
 #define DEFAULT_THRUST_MAX_MOTORS_12 8.0f //Newtons
 #define DEFAULT_THRUST_MAX_MOTOR_3 3.5f //Newtons
 #define DEFAULT_AIRCRAFT_CENTER_OF_MASS_METERS -0.053f //Meters
-#define DEFAULT_MOTOR3_THRUST_TO_TORQUE_COEF 0.025 //NM per N thrust.
+#define DEFAULT_MOTOR3_THRUST_TO_TORQUE_COEF 0.025f //NM per N thrust.
+#define DEFAULT_ELEVON_COEF_OF_LIFT_PER_DEFLECTION 6.3f //(2*PI?)
 
 const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
 	    // parameters from parent vehicle
@@ -117,6 +120,8 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
     AP_GROUPINFO("MASS_KG",        15, BTOL_Controller, aircraftMassInKg,        DEFAULT_AIRCRAFT_MASS_IN_KG),
     AP_GROUPINFO("CG_METERS",        16, BTOL_Controller, centerOfMassLocationX,        DEFAULT_AIRCRAFT_CENTER_OF_MASS_METERS),
     AP_GROUPINFO("M3_TRQ_RATO",        17, BTOL_Controller, motor3ThrustToTorqueCoef,        DEFAULT_MOTOR3_THRUST_TO_TORQUE_COEF),
+    AP_GROUPINFO("Elevon_CL",        18, BTOL_Controller, elevonCoefLiftPerDeflection,        DEFAULT_ELEVON_COEF_OF_LIFT_PER_DEFLECTION),
+
 
 	AP_GROUPEND
 };
@@ -395,7 +400,6 @@ void Plane::btol_stabilize() {
     hal.rcout->write(CH_7, servoControlValueTilt1);
     hal.rcout->write(CH_8, servoControlValueTilt2);
 
-
      /*   hal.rcout->write(CH_1, servoControlValueElevon1);
     hal.rcout->write(CH_2, servoControlValueElevon2);  //not working...perhaps base zero??
     hal.rcout->write(CH_3, servoControlValueTilt1);
@@ -410,11 +414,13 @@ void Plane::btol_stabilize() {
 
 //https://github.com/ArduPilot/ardupilot/blob/master/libraries/AP_Logger/LogStructure.h#L42
 //https://ardupilot.org/dev/docs/code-overview-adding-a-new-log-message.html
+
+    uint64_t timeForLog = AP_HAL::micros64();
     AP::logger().Write("BSTB", "t_us,dt_ms,dt_us,ft_us,dt_PID,c1,c2,c3,c4,c5,c6,c7,c8",
                    "SSSSS--------", // units: seconds, rad/sec
                    "F000000000000", // mult: 1e-6, 1e-2
                    "QIIIfhhhhhhhh", // format: uint64_t, float
-                   AP_HAL::micros64(),
+                   timeForLog,
                    dt_ms,
                    dt_us,
                    functionTime_us,
@@ -433,7 +439,7 @@ AP::logger().Write("BEFF", "t_us,m1,m2,m3,e1,e2,t1,t2,mass",
                    "S--------", // units: seconds, rad/sec
                    "F00000000", // mult: 1e-6, 1e-2
                    "Qffffffff", // format: uint64_t, float
-                   AP_HAL::micros64(),
+                   timeForLog,
                    (double)effectorCommands.motor1Thrust,
                    (double)effectorCommands.motor2Thrust,
                    (double)effectorCommands.motor3Thrust,
@@ -444,16 +450,17 @@ AP::logger().Write("BEFF", "t_us,m1,m2,m3,e1,e2,t1,t2,mass",
                    (double)g2.btolController.getAircraftMass()
                     );
 //battery.read();
-
+/*
+//This is causing issues with the logger, not recording the correct time.  All appearing in one time at 000000
 AP::logger().Write("BBAT", "t_us,v,v_rest,%",
                    "S---", // units: seconds, rad/sec
                    "F000", // mult: 1e-6, 1e-2
                    "Qfff", // format: uint64_t, float
-                   AP_HAL::micros64(),
+                   timeForLog,
                    (double)battery.voltage(),
                    (double)battery.voltage_resting_estimate(),
                    (double)battery.capacity_remaining_pct()
-                    );
+                    );*/
 
 
 
@@ -778,8 +785,8 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
 
 
         //get_rate_roll_pid()
-        desiredMomentX = get_rate_roll_pid().update_all(targetRollRate,_ahrs.get_gyro().x, false);
-        desiredMomentY = get_rate_pitch_pid().update_all(targetPitchRate,_ahrs.get_gyro().y, false);
+        desiredMomentX = get_rate_roll_pid().update_all(targetRollRate,_ahrs.get_gyro().x, false) * aircraftProperties.momentOfInertiaRoll;
+        desiredMomentY = get_rate_pitch_pid().update_all(targetPitchRate,_ahrs.get_gyro().y, false) * aircraftProperties.momentOfInertiaPitch;
 
         //float lateralAcceleration = _ahrs.get_accel().y; //lateral Acceleration.
 
@@ -794,14 +801,14 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
 
 
         //perhaps this should be pilot input + rate stability?  as we need to be able to remove rate stability in forward flight and apply some turn coordination, if needed.
-        desiredMomentZ = get_rate_yaw_pid().update_all(command.targetYawRate,_ahrs.get_gyro().z, false);
+        desiredMomentZ = get_rate_yaw_pid().update_all(command.targetYawRate,_ahrs.get_gyro().z, false) * aircraftProperties.momentOfInertiaYaw;
     }
 
     if(state.regulatorMode == CONTROLLER_STATE_REGULATOR_MODE_RATE)
     {
-        desiredMomentX = get_rate_roll_pid().update_all(command.targetRollRate,_ahrs.get_gyro().x, false);
-        desiredMomentY = get_rate_pitch_pid().update_all(command.targetPitchRate,_ahrs.get_gyro().y, false);
-        desiredMomentZ = get_rate_yaw_pid().update_all(command.targetYawRate,_ahrs.get_gyro().z, false);
+        desiredMomentX = get_rate_roll_pid().update_all(command.targetRollRate,_ahrs.get_gyro().x, false) * aircraftProperties.momentOfInertiaRoll;
+        desiredMomentY = get_rate_pitch_pid().update_all(command.targetPitchRate,_ahrs.get_gyro().y, false) * aircraftProperties.momentOfInertiaPitch;
+        desiredMomentZ = get_rate_yaw_pid().update_all(command.targetYawRate,_ahrs.get_gyro().z, false) * aircraftProperties.momentOfInertiaYaw;
 
     }
 
@@ -855,7 +862,8 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         float pitchMomentToElevonSurfaceDeflectionGain = 1.0f;
         float rollMomentToElevonSurfaceDeflectionGainPos = 1.0f;
 
-        #define ELEVON_COEF_OF_LIFT_PER_DEFLECTION 4.0f //(2*PI?)
+        
+
 
         //TODO: have control surface movement become more limited as we get into hover?  Ie: shape the up and down limits?
         float distanceXFromCGElevonsAbsv = fabs(aircraftProperties.elevon1LocationX - getCenterOfMassLocationX()); //aircraftProperties.centerOfMassLocationX);//will be positive //should I make this an abs
@@ -865,12 +873,12 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         //float elevonMaxForceMagnitude = getControlSurfaceForce(AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MAX_ANGLE, AIRCRAFT_PROPERTIES_ELEVON_AREA_M2, dynamicPressure);
 
         //Calculate how much force the surface will generate per deflection.  Assuming linear (or close-enough)
-        float elevonDeflectionToForceGain = dynamicPressure * AIRCRAFT_PROPERTIES_ELEVON_AREA_M2 * (1.0f) * ELEVON_COEF_OF_LIFT_PER_DEFLECTION;
+        float elevonDeflectionToForceGain = dynamicPressure * AIRCRAFT_PROPERTIES_ELEVON_AREA_M2 * (1.0f) * elevonCoefLiftPerDeflection;
         //protect agains div/0! //TODO: //Make better.
         float protectedElevonDeflectionToForceGain = elevonDeflectionToForceGain;
-        if (protectedElevonDeflectionToForceGain < AIRCRAFT_PROPERTIES_ELEVON_AREA_M2 * 50 * ELEVON_COEF_OF_LIFT_PER_DEFLECTION)
+        if (protectedElevonDeflectionToForceGain < AIRCRAFT_PROPERTIES_ELEVON_AREA_M2 * 30 * elevonCoefLiftPerDeflection)
         {
-            protectedElevonDeflectionToForceGain = AIRCRAFT_PROPERTIES_ELEVON_AREA_M2 * 50 * ELEVON_COEF_OF_LIFT_PER_DEFLECTION;
+            protectedElevonDeflectionToForceGain = AIRCRAFT_PROPERTIES_ELEVON_AREA_M2 * 30 * elevonCoefLiftPerDeflection;
         }
 
         //Calculate the moment-to-deflection gain so we can calculate the deflection (later).  We use the force and distance.
