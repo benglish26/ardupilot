@@ -68,6 +68,7 @@ extern const AP_HAL::HAL& hal;
 #define DEFAULT_AIRCRAFT_CENTER_OF_MASS_METERS -0.053f //Meters
 #define DEFAULT_MOTOR3_THRUST_TO_TORQUE_COEF 0.025f //NM per N thrust.
 #define DEFAULT_ELEVON_COEF_OF_LIFT_PER_DEFLECTION 6.3f //(2*PI?)
+#define DEFAULT_ELEVON_MINIMUM_DYNAMIC_PRESSURE 50.0f
 
 const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
 	    // parameters from parent vehicle
@@ -120,8 +121,8 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
     AP_GROUPINFO("MASS_KG",        15, BTOL_Controller, aircraftMassInKg,        DEFAULT_AIRCRAFT_MASS_IN_KG),
     AP_GROUPINFO("CG_METERS",        16, BTOL_Controller, centerOfMassLocationX,        DEFAULT_AIRCRAFT_CENTER_OF_MASS_METERS),
     AP_GROUPINFO("M3_TRQ_RATO",        17, BTOL_Controller, motor3ThrustToTorqueCoef,        DEFAULT_MOTOR3_THRUST_TO_TORQUE_COEF),
-    AP_GROUPINFO("Elevon_CL",        18, BTOL_Controller, elevonCoefLiftPerDeflection,        DEFAULT_ELEVON_COEF_OF_LIFT_PER_DEFLECTION),
-
+    AP_GROUPINFO("Elvn_CL",        18, BTOL_Controller, elevonCoefLiftPerDeflection,        DEFAULT_ELEVON_COEF_OF_LIFT_PER_DEFLECTION),
+    AP_GROUPINFO("Elvn_min_q",        18, BTOL_Controller, elevonControlMinimumDynamicPressure,        DEFAULT_ELEVON_MINIMUM_DYNAMIC_PRESSURE),
 
 	AP_GROUPEND
 };
@@ -826,6 +827,7 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
             desiredMomentX = command.passthroughAngularAccelerationRoll * aircraftProperties.momentOfInertiaRoll; //passthrough to start to help build effector blender.
             desiredMomentY = command.passthroughAngularAccelerationPitch * aircraftProperties.momentOfInertiaPitch;
             desiredMomentZ = command.passthroughAngularAccelerationYaw * aircraftProperties.momentOfInertiaYaw;
+            //acceleration * moment of inertia
         }
         
 
@@ -874,11 +876,11 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
 
         //Calculate how much force the surface will generate per deflection.  Assuming linear (or close-enough)
         float elevonDeflectionToForceGain = dynamicPressure * AIRCRAFT_PROPERTIES_ELEVON_AREA_M2 * (1.0f) * elevonCoefLiftPerDeflection;
-        //protect agains div/0! //TODO: //Make better.
+        //protect agains div/0, keeps surfaces from railing too hard at low speeds (which could be high speeds!)//TODO: //Make better.
         float protectedElevonDeflectionToForceGain = elevonDeflectionToForceGain;
-        if (protectedElevonDeflectionToForceGain < AIRCRAFT_PROPERTIES_ELEVON_AREA_M2 * 30 * elevonCoefLiftPerDeflection)
+        if (protectedElevonDeflectionToForceGain < AIRCRAFT_PROPERTIES_ELEVON_AREA_M2 * elevonControlMinimumDynamicPressure * elevonCoefLiftPerDeflection)
         {
-            protectedElevonDeflectionToForceGain = AIRCRAFT_PROPERTIES_ELEVON_AREA_M2 * 30 * elevonCoefLiftPerDeflection;
+            protectedElevonDeflectionToForceGain = AIRCRAFT_PROPERTIES_ELEVON_AREA_M2 * elevonControlMinimumDynamicPressure * elevonCoefLiftPerDeflection;
         }
 
         //Calculate the moment-to-deflection gain so we can calculate the deflection (later).  We use the force and distance.

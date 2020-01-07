@@ -325,6 +325,7 @@ private:
     AP_Float centerOfMassLocationX; //in Meters
     AP_Float motor3ThrustToTorqueCoef; //N to NM
     AP_Float elevonCoefLiftPerDeflection;
+    AP_Float elevonControlMinimumDynamicPressure; //Pa
 
 
     float pitchRateError;
