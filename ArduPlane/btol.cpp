@@ -122,8 +122,8 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
     AP_GROUPINFO("CG_METERS",        16, BTOL_Controller, centerOfMassLocationX,        DEFAULT_AIRCRAFT_CENTER_OF_MASS_METERS),
     AP_GROUPINFO("M3_TRQ_RATO",        17, BTOL_Controller, motor3ThrustToTorqueCoef,        DEFAULT_MOTOR3_THRUST_TO_TORQUE_COEF),
     AP_GROUPINFO("Elvn_CL",        18, BTOL_Controller, elevonCoefLiftPerDeflection,        DEFAULT_ELEVON_COEF_OF_LIFT_PER_DEFLECTION),
-    AP_GROUPINFO("Elvn_min_q",        18, BTOL_Controller, elevonControlMinimumDynamicPressure,        DEFAULT_ELEVON_MINIMUM_DYNAMIC_PRESSURE),
-
+    AP_GROUPINFO("Elvn_min_q",        19, BTOL_Controller, elevonControlMinimumDynamicPressure,        DEFAULT_ELEVON_MINIMUM_DYNAMIC_PRESSURE),
+//Make sure that the number is progressed!
 	AP_GROUPEND
 };
 
@@ -417,7 +417,7 @@ void Plane::btol_stabilize() {
 //https://ardupilot.org/dev/docs/code-overview-adding-a-new-log-message.html
 
     uint64_t timeForLog = AP_HAL::micros64();
-    AP::logger().Write("BSTB", "t_us,dt_ms,dt_us,ft_us,dt_PID,c1,c2,c3,c4,c5,c6,c7,c8",
+    AP::logger().Write("BSTB", "TimeUS,dt_ms,dt_us,ft_us,dt_PID,c1,c2,c3,c4,c5,c6,c7,c8",
                    "SSSSS--------", // units: seconds, rad/sec
                    "F000000000000", // mult: 1e-6, 1e-2
                    "QIIIfhhhhhhhh", // format: uint64_t, float
@@ -436,7 +436,7 @@ void Plane::btol_stabilize() {
                    servoControlValueMotor3
                    );
 
-AP::logger().Write("BEFF", "t_us,m1,m2,m3,e1,e2,t1,t2,mass",
+AP::logger().Write("BEFF", "TimeUS,m1,m2,m3,e1,e2,t1,t2,mass",
                    "S--------", // units: seconds, rad/sec
                    "F00000000", // mult: 1e-6, 1e-2
                    "Qffffffff", // format: uint64_t, float
@@ -451,9 +451,9 @@ AP::logger().Write("BEFF", "t_us,m1,m2,m3,e1,e2,t1,t2,mass",
                    (double)g2.btolController.getAircraftMass()
                     );
 //battery.read();
-/*
+
 //This is causing issues with the logger, not recording the correct time.  All appearing in one time at 000000
-AP::logger().Write("BBAT", "t_us,v,v_rest,%",
+AP::logger().Write("BBAT", "TimeUS,v,v_rest,%",
                    "S---", // units: seconds, rad/sec
                    "F000", // mult: 1e-6, 1e-2
                    "Qfff", // format: uint64_t, float
@@ -461,7 +461,7 @@ AP::logger().Write("BBAT", "t_us,v,v_rest,%",
                    (double)battery.voltage(),
                    (double)battery.voltage_resting_estimate(),
                    (double)battery.capacity_remaining_pct()
-                    );*/
+                    );
 
 
 
@@ -864,7 +864,7 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         float pitchMomentToElevonSurfaceDeflectionGain = 1.0f;
         float rollMomentToElevonSurfaceDeflectionGainPos = 1.0f;
 
-        
+        //TODO: Calculate local airflow due to prop/thrust.
 
 
         //TODO: have control surface movement become more limited as we get into hover?  Ie: shape the up and down limits?
