@@ -252,6 +252,7 @@ public:
     void setCommandedRollRate(float rollRate); //Rad/sec
     void setCommandedPitchRate(float pitchRate); //Rad/sec
     void setCommandedYawRate(float yawRate); //Rad/sec
+    float getFilterAlpha(float filt_hz, float dt);
 
     float getEstimatedDynamicPressure(void);
     float getInferredDynamicPressureFromTransitionRatio(float inferredTransitionRatio, float dynamicPressureAtTopOfTransition);
@@ -326,6 +327,9 @@ private:
     AP_Float motor3ThrustToTorqueCoef; //N to NM
     AP_Float elevonCoefLiftPerDeflection;
     AP_Float elevonControlMinimumDynamicPressure; //Pa
+    AP_Float lowpassFilterCuttofFrequencyPitch; //Pa
+    AP_Float lowpassFilterCuttofFrequencyRoll; //Pa
+    AP_Float lowpassFilterCuttofFrequencyYaw; //Pa
 
 
     float pitchRateError;

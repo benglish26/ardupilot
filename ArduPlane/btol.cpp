@@ -69,6 +69,9 @@ extern const AP_HAL::HAL& hal;
 #define DEFAULT_MOTOR3_THRUST_TO_TORQUE_COEF 0.025f //NM per N thrust.
 #define DEFAULT_ELEVON_COEF_OF_LIFT_PER_DEFLECTION 6.3f //(2*PI?)
 #define DEFAULT_ELEVON_MINIMUM_DYNAMIC_PRESSURE 50.0f
+#define DEFAULT_LOWPASS_FILTER_CUTTOFF_FREQUENCY_PITCH 0.0f
+#define DEFAULT_LOWPASS_FILTER_CUTTOFF_FREQUENCY_ROLL 0.0f
+#define DEFAULT_LOWPASS_FILTER_CUTTOFF_FREQUENCY_YAW 0.0f
 
 const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
 	    // parameters from parent vehicle
@@ -123,6 +126,11 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
     AP_GROUPINFO("M3_TRQ_RATO",        17, BTOL_Controller, motor3ThrustToTorqueCoef,        DEFAULT_MOTOR3_THRUST_TO_TORQUE_COEF),
     AP_GROUPINFO("Elvn_CL",        18, BTOL_Controller, elevonCoefLiftPerDeflection,        DEFAULT_ELEVON_COEF_OF_LIFT_PER_DEFLECTION),
     AP_GROUPINFO("Elvn_min_q",        19, BTOL_Controller, elevonControlMinimumDynamicPressure,        DEFAULT_ELEVON_MINIMUM_DYNAMIC_PRESSURE),
+    AP_GROUPINFO("LowPassF_P",        20, BTOL_Controller, lowpassFilterCuttofFrequencyPitch,        DEFAULT_LOWPASS_FILTER_CUTTOFF_FREQUENCY_PITCH),
+    AP_GROUPINFO("LowPassF_R",        21, BTOL_Controller, lowpassFilterCuttofFrequencyRoll,        DEFAULT_LOWPASS_FILTER_CUTTOFF_FREQUENCY_ROLL),
+    AP_GROUPINFO("LowPassF_Y",        22, BTOL_Controller, lowpassFilterCuttofFrequencyYaw,        DEFAULT_LOWPASS_FILTER_CUTTOFF_FREQUENCY_YAW),
+
+
 //Make sure that the number is progressed!
 	AP_GROUPEND
 };
@@ -185,9 +193,9 @@ void Plane::update_btol() {  //50Hz
     g2.btolController.setCommandedRollRate(rcCommandInputRollStickRight * g2.btolController.getRollRateCommandGain());
     g2.btolController.setCommandedYawRate(rcCommandInputYawStickRight * g2.btolController.getYawRateCommandGain()); 
 
-    g2.btolController.setDesiredPassthroughAngularAccelerationPitch(rcCommandInputPitchStickAft * 1.0f);
-    g2.btolController.setDesiredPassthroughAngularAccelerationRoll(rcCommandInputRollStickRight * 1.0f);
-    g2.btolController.setDesiredPassthroughAngularAccelerationYaw(rcCommandInputYawStickRight * 1.0f); //TODO: these are temporary gain placeholders.
+    g2.btolController.setDesiredPassthroughAngularAccelerationPitch(rcCommandInputPitchStickAft * 5.0f);
+    g2.btolController.setDesiredPassthroughAngularAccelerationRoll(rcCommandInputRollStickRight * 5.0f);
+    g2.btolController.setDesiredPassthroughAngularAccelerationYaw(rcCommandInputYawStickRight * 5.0f); //TODO: these are temporary gain placeholders.
 
 
     //Todo: this should be a state machine.  This is a bit hacky, setting it every cycle.
@@ -622,6 +630,18 @@ void BTOL_Controller::setCommandedYawRate(float yawRate)
     command.targetYawRate = yawRate;
 }
 
+// get_filt_alpha - calculate a filter alpha
+float BTOL_Controller::getFilterAlpha(float filt_hz, float dt)
+{
+    if (is_zero(filt_hz)) {
+        return 1.0f;
+    }
+
+    // calculate alpha
+    float rc = 1 / (M_2PI * filt_hz);
+    return dt / (dt + rc);
+}
+
 int16_t BTOL_Controller::calculateServoValueFromAngle(float desiredAngle, float minimumAngle, float maximumAngle, int16_t minimumPWM, int16_t maximumPWM)
 {
     int16_t servoPWMValue = 1500;
@@ -812,6 +832,38 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         desiredMomentZ = get_rate_yaw_pid().update_all(command.targetYawRate,_ahrs.get_gyro().z, false) * aircraftProperties.momentOfInertiaYaw;
 
     }
+    //lowpass filter the desired moments.
+    static float filteredDesiredMomentX = 0.0;
+    filteredDesiredMomentX = filteredDesiredMomentX + getFilterAlpha(lowpassFilterCuttofFrequencyRoll, dt)  * (desiredMomentX - filteredDesiredMomentX);
+    static float filteredDesiredMomentY = 0.0;
+    filteredDesiredMomentY = filteredDesiredMomentY + getFilterAlpha(lowpassFilterCuttofFrequencyPitch, dt)  * (desiredMomentY - filteredDesiredMomentY);
+    static float filteredDesiredMomentZ = 0.0;
+    filteredDesiredMomentZ = filteredDesiredMomentZ + getFilterAlpha(lowpassFilterCuttofFrequencyYaw, dt)  * (desiredMomentZ - filteredDesiredMomentZ);
+
+
+    AP::logger().Write("BFIL", "TimeUS,dt,mX,mfX,cfX,mY,mfY,cfY,mZ,mfZ,cfZ",
+                "S----------", // units: seconds, rad/sec
+                "F0000000000", // mult: 1e-6, 1e-2
+                "Qffffffffff", // format: uint64_t, float
+                AP_HAL::micros64(),
+                (double)dt,
+                (double)desiredMomentX,
+                (double)filteredDesiredMomentX,
+                (double)lowpassFilterCuttofFrequencyRoll,
+                (double)desiredMomentY,
+                (double)filteredDesiredMomentY,
+                (double)lowpassFilterCuttofFrequencyPitch,
+                (double)desiredMomentZ,
+                (double)filteredDesiredMomentZ,
+                (double)lowpassFilterCuttofFrequencyYaw
+                );
+
+
+    //overwrite non-filtered moments with the filtered moments.
+    desiredMomentX = filteredDesiredMomentX;
+    desiredMomentY = filteredDesiredMomentY;
+    desiredMomentZ = filteredDesiredMomentZ;
+
 
     //Log the PID values.
     //not sure what to put in the identifier enum  just going to try using the default ones...because the defaults should't be running, because I disabled them.
