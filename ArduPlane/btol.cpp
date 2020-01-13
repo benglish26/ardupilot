@@ -73,6 +73,34 @@ extern const AP_HAL::HAL& hal;
 #define DEFAULT_LOWPASS_FILTER_CUTTOFF_FREQUENCY_ROLL 0.0f
 #define DEFAULT_LOWPASS_FILTER_CUTTOFF_FREQUENCY_YAW 0.0f
 
+
+
+
+#define DEFAULT_AERO_DAMPING_ROLL_VS_TRUE_AIRSPEED_COEF 0.0f
+#define DEFAULT_AERO_DAMPING_PITCH_VS_TRUE_AIRSPEED_COEF 0.0f
+#define DEFAULT_AERO_DAMPING_YAW_VS_TRUE_AIRSPEED_COEF 0.0f
+
+#define DEFAULT_P_TERM_HOVER_PITCH 0.0f
+#define DEFAULT_P_TERM_HOVER_FORWARD_FLIGHT_PITCH 0.0f
+#define DEFAULT_I_TERM_HOVER_PITCH 0.0f
+#define DEFAULT_I_TERM_HOVER_FORWARD_FLIGHT_PITCH 0.0f
+#define DEFAULT_D_TERM_HOVER_PITCH 0.0f
+#define DEFAULT_D_TERM_HOVER_FORWARD_FLIGHT_PITCH 0.0f
+
+#define DEFAULT_P_TERM_HOVER_ROLL 0.0f
+#define DEFAULT_P_TERM_HOVER_FORWARD_FLIGHT_ROLL 0.0f
+#define DEFAULT_I_TERM_HOVER_ROLL 0.0f
+#define DEFAULT_I_TERM_HOVER_FORWARD_FLIGHT_ROLL 0.0f
+#define DEFAULT_D_TERM_HOVER_ROLL 0.0f
+#define DEFAULT_D_TERM_HOVER_FORWARD_FLIGHT_ROLL 0.0f
+
+#define DEFAULT_P_TERM_HOVER_YAW 0.0f
+#define DEFAULT_P_TERM_HOVER_FORWARD_FLIGHT_YAW 0.0f
+#define DEFAULT_I_TERM_HOVER_YAW 0.0f
+#define DEFAULT_I_TERM_HOVER_FORWARD_FLIGHT_YAW 0.0f
+#define DEFAULT_D_TERM_HOVER_YAW 0.0f
+#define DEFAULT_D_TERM_HOVER_FORWARD_FLIGHT_YAW 0.0f
+
 const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
 	    // parameters from parent vehicle
 
@@ -129,6 +157,31 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
     AP_GROUPINFO("LowPassF_P",        20, BTOL_Controller, lowpassFilterCuttofFrequencyPitch,        DEFAULT_LOWPASS_FILTER_CUTTOFF_FREQUENCY_PITCH),
     AP_GROUPINFO("LowPassF_R",        21, BTOL_Controller, lowpassFilterCuttofFrequencyRoll,        DEFAULT_LOWPASS_FILTER_CUTTOFF_FREQUENCY_ROLL),
     AP_GROUPINFO("LowPassF_Y",        22, BTOL_Controller, lowpassFilterCuttofFrequencyYaw,        DEFAULT_LOWPASS_FILTER_CUTTOFF_FREQUENCY_YAW),
+
+    AP_GROUPINFO("AeDamRCf",        23, BTOL_Controller, aeroDampingVsTrueAirspeedCoefRoll,        DEFAULT_AERO_DAMPING_ROLL_VS_TRUE_AIRSPEED_COEF),
+    AP_GROUPINFO("AeDamPCf",        24, BTOL_Controller, aeroDampingVsTrueAirspeedCoefPitch,        DEFAULT_AERO_DAMPING_PITCH_VS_TRUE_AIRSPEED_COEF),
+    AP_GROUPINFO("AeDamYCf",        25, BTOL_Controller, aeroDampingVsTrueAirspeedCoefYaw,        DEFAULT_AERO_DAMPING_YAW_VS_TRUE_AIRSPEED_COEF),
+
+   AP_GROUPINFO("P_P_Hov",         26, BTOL_Controller, PitchRegulatorPtermHover,               DEFAULT_P_TERM_HOVER_PITCH),
+    AP_GROUPINFO("P_P_FF",         27, BTOL_Controller, PitchRegulatorPtermForwardFlight,        DEFAULT_P_TERM_HOVER_FORWARD_FLIGHT_PITCH),
+    AP_GROUPINFO("P_I_Hov",        28, BTOL_Controller, PitchRegulatorItermHover,               DEFAULT_I_TERM_HOVER_PITCH),
+    AP_GROUPINFO("P_I_FF",        29, BTOL_Controller, PitchRegulatorItermForwardFlight,        DEFAULT_I_TERM_HOVER_FORWARD_FLIGHT_PITCH),
+    AP_GROUPINFO("P_D_Hov",        30, BTOL_Controller, PitchRegulatorDtermHover,               DEFAULT_D_TERM_HOVER_PITCH),
+    AP_GROUPINFO("P_D_FF",        31, BTOL_Controller, PitchRegulatorDtermForwardFlight,        DEFAULT_D_TERM_HOVER_FORWARD_FLIGHT_PITCH),
+
+    AP_GROUPINFO("R_P_Hov",         32, BTOL_Controller, RollRegulatorPtermHover,               DEFAULT_P_TERM_HOVER_ROLL),
+    AP_GROUPINFO("R_P_FF",         33, BTOL_Controller, RollRegulatorPtermForwardFlight,        DEFAULT_P_TERM_HOVER_FORWARD_FLIGHT_ROLL),
+    AP_GROUPINFO("R_I_Hov",        34, BTOL_Controller, RollRegulatorItermHover,               DEFAULT_I_TERM_HOVER_ROLL),
+    AP_GROUPINFO("R_I_FF",        35, BTOL_Controller, RollRegulatorItermForwardFlight,        DEFAULT_I_TERM_HOVER_FORWARD_FLIGHT_ROLL),
+    AP_GROUPINFO("R_D_Hov",        36, BTOL_Controller, RollRegulatorDtermHover,               DEFAULT_D_TERM_HOVER_ROLL),
+    AP_GROUPINFO("R_D_FF",        37, BTOL_Controller, RollRegulatorDtermForwardFlight,        DEFAULT_D_TERM_HOVER_FORWARD_FLIGHT_ROLL),
+
+    AP_GROUPINFO("Y_P_Hov",         38, BTOL_Controller, YawRegulatorPtermHover,               DEFAULT_P_TERM_HOVER_YAW),
+    AP_GROUPINFO("Y_P_FF",         39, BTOL_Controller, YawRegulatorPtermForwardFlight,        DEFAULT_P_TERM_HOVER_FORWARD_FLIGHT_YAW),
+    AP_GROUPINFO("Y_I_Hov",        40, BTOL_Controller, YawRegulatorItermHover,               DEFAULT_I_TERM_HOVER_YAW),
+    AP_GROUPINFO("Y_I_FF",        41, BTOL_Controller, YawRegulatorItermForwardFlight,        DEFAULT_I_TERM_HOVER_FORWARD_FLIGHT_YAW),
+    AP_GROUPINFO("Y_D_Hov",        42, BTOL_Controller, YawRegulatorDtermHover,               DEFAULT_D_TERM_HOVER_YAW),
+    AP_GROUPINFO("Y_D_FF",        43, BTOL_Controller, YawRegulatorDtermForwardFlight,        DEFAULT_D_TERM_HOVER_FORWARD_FLIGHT_YAW),
 
 
 //Make sure that the number is progressed!

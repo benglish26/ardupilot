@@ -331,6 +331,34 @@ private:
     AP_Float lowpassFilterCuttofFrequencyRoll; //Pa
     AP_Float lowpassFilterCuttofFrequencyYaw; //Pa
 
+    AP_Float aeroDampingVsTrueAirspeedCoefRoll; //Torque
+    AP_Float aeroDampingVsTrueAirspeedCoefPitch; //Torque
+    AP_Float aeroDampingVsTrueAirspeedCoefYaw; //Torque
+
+    AP_Float PitchRegulatorPtermHover;
+    AP_Float PitchRegulatorPtermForwardFlight;
+    AP_Float PitchRegulatorItermHover;
+    AP_Float PitchRegulatorItermForwardFlight;
+    AP_Float PitchRegulatorDtermHover;
+    AP_Float PitchRegulatorDtermForwardFlight;
+
+    AP_Float RollRegulatorPtermHover;
+    AP_Float RollRegulatorPtermForwardFlight;
+    AP_Float RollRegulatorItermHover;
+    AP_Float RollRegulatorItermForwardFlight;
+    AP_Float RollRegulatorDtermHover;
+    AP_Float RollRegulatorDtermForwardFlight;
+
+    AP_Float YawRegulatorPtermHover;
+    AP_Float YawRegulatorPtermForwardFlight;
+    AP_Float YawRegulatorItermHover;
+    AP_Float YawRegulatorItermForwardFlight;
+    AP_Float YawRegulatorDtermHover;
+    AP_Float YawRegulatorDtermForwardFlight;
+
+
+
+
 
     float pitchRateError;
     float rollRateError;
