@@ -246,6 +246,8 @@ public:
     void setDesiredAccelerationAlongTiltAngle(float tiltAcceleration);
     float getRangeRatio(float value, float min, float max);
 
+    float pitchRateRegulator(float targetRate, float measuredRate, float dynamicPressure, float trueAirspeed, float deltaTime);
+
     void setDesiredPassthroughAngularAccelerationRoll(float waX); //rad/s/s
     void setDesiredPassthroughAngularAccelerationPitch(float waY); //rad/s/s
     void setDesiredPassthroughAngularAccelerationYaw(float waZ); //rad/s/s
@@ -342,6 +344,9 @@ private:
     AP_Float aeroDampingVsTrueAirspeedCoefRoll; //Torque
     AP_Float aeroDampingVsTrueAirspeedCoefPitch; //Torque
     AP_Float aeroDampingVsTrueAirspeedCoefYaw; //Torque
+    AP_Float aeroDampingBaselineHoverRoll; //Torque
+    AP_Float aeroDampingBaselineHoverPitch; 
+    AP_Float aeroDampingBaselineHoverYaw; 
 
     AP_Float PitchRegulatorPtermHover;
     AP_Float PitchRegulatorPtermForwardFlight;
