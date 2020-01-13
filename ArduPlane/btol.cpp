@@ -101,6 +101,10 @@ extern const AP_HAL::HAL& hal;
 #define DEFAULT_D_TERM_HOVER_YAW 0.0f
 #define DEFAULT_D_TERM_HOVER_FORWARD_FLIGHT_YAW 0.0f
 
+#define DEFAULT_COMMAND_GAIN_PASSTHROUGH_ACCELERATION_ROLL  10.0f
+#define DEFAULT_COMMAND_GAIN_PASSTHROUGH_ACCELERATION_PITCH  10.0f
+#define DEFAULT_COMMAND_GAIN_PASSTHROUGH_ACCELERATION_YAW  10.0f
+
 const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
 	    // parameters from parent vehicle
 
@@ -184,6 +188,12 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
     AP_GROUPINFO("Y_D_FF",        43, BTOL_Controller, YawRegulatorDtermForwardFlight,        DEFAULT_D_TERM_HOVER_FORWARD_FLIGHT_YAW),
 
 
+    AP_GROUPINFO("R_CMDG_PT",        44, BTOL_Controller, passthroughAngularAccelerationCommandGainRoll,        DEFAULT_COMMAND_GAIN_PASSTHROUGH_ACCELERATION_ROLL),
+    AP_GROUPINFO("P_CMDG_PT",        45, BTOL_Controller, passthroughAngularAccelerationCommandGainPitch,        DEFAULT_COMMAND_GAIN_PASSTHROUGH_ACCELERATION_PITCH),
+    AP_GROUPINFO("Y_CMDG_PT",        46, BTOL_Controller, passthroughAngularAccelerationCommandGainYaw,        DEFAULT_COMMAND_GAIN_PASSTHROUGH_ACCELERATION_YAW),
+
+
+
 //Make sure that the number is progressed!
 	AP_GROUPEND
 };
@@ -246,9 +256,9 @@ void Plane::update_btol() {  //50Hz
     g2.btolController.setCommandedRollRate(rcCommandInputRollStickRight * g2.btolController.getRollRateCommandGain());
     g2.btolController.setCommandedYawRate(rcCommandInputYawStickRight * g2.btolController.getYawRateCommandGain()); 
 
-    g2.btolController.setDesiredPassthroughAngularAccelerationPitch(rcCommandInputPitchStickAft * 5.0f);
-    g2.btolController.setDesiredPassthroughAngularAccelerationRoll(rcCommandInputRollStickRight * 5.0f);
-    g2.btolController.setDesiredPassthroughAngularAccelerationYaw(rcCommandInputYawStickRight * 5.0f); //TODO: these are temporary gain placeholders.
+    g2.btolController.setDesiredPassthroughAngularAccelerationPitch(rcCommandInputPitchStickAft * g2.btolController.getPitchPassthroughAccelerationCommandGain());
+    g2.btolController.setDesiredPassthroughAngularAccelerationRoll(rcCommandInputRollStickRight * g2.btolController.getRollPassthroughAccelerationCommandGain());
+    g2.btolController.setDesiredPassthroughAngularAccelerationYaw(rcCommandInputYawStickRight * g2.btolController.getYawPassthroughAccelerationCommandGain()); //TODO: these are temporary gain placeholders.
 
 
     //Todo: this should be a state machine.  This is a bit hacky, setting it every cycle.
@@ -820,7 +830,9 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
                 (double)command.targetTiltAcceleration
                 );
 
-    //now do some regulator stuff!
+
+
+    //Get the output moment from the regulator, depending on the control mode.
     float desiredMomentX = 0.0f;
     float desiredMomentY = 0.0f;
     float desiredMomentZ = 0.0f;
@@ -924,16 +936,15 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
     AP::logger().Write_PID(LOG_PIDP_MSG, get_rate_pitch_pid().get_pid_info());
     AP::logger().Write_PID(LOG_PIDY_MSG, get_rate_yaw_pid().get_pid_info());
 
-    //calculate desired moments
-        //calculate reponse to the rate errors.
-        //overwrite values if in passthrough test mode.
-        if(state.regulatorMode == CONTROLLER_STATE_REGULATOR_MODE_PASSTHROUGH)
-        {
-            desiredMomentX = command.passthroughAngularAccelerationRoll * aircraftProperties.momentOfInertiaRoll; //passthrough to start to help build effector blender.
-            desiredMomentY = command.passthroughAngularAccelerationPitch * aircraftProperties.momentOfInertiaPitch;
-            desiredMomentZ = command.passthroughAngularAccelerationYaw * aircraftProperties.momentOfInertiaYaw;
-            //acceleration * moment of inertia
-        }
+
+    //overwrite desire moments if in passthrough test mode.
+    if(state.regulatorMode == CONTROLLER_STATE_REGULATOR_MODE_PASSTHROUGH)
+    {
+        desiredMomentX = command.passthroughAngularAccelerationRoll * aircraftProperties.momentOfInertiaRoll; //passthrough to start to help build effector blender.
+        desiredMomentY = command.passthroughAngularAccelerationPitch * aircraftProperties.momentOfInertiaPitch;
+        desiredMomentZ = command.passthroughAngularAccelerationYaw * aircraftProperties.momentOfInertiaYaw;
+        //acceleration * moment of inertia
+    }
         
 
     //add the torque from motor3 (assuming motors 1 and 2 cancel out!)
