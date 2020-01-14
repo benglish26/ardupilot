@@ -354,6 +354,8 @@ private:
     AP_Float PitchRegulatorItermForwardFlight;
     AP_Float PitchRegulatorDtermHover;
     AP_Float PitchRegulatorDtermForwardFlight;
+    AP_Float PitchRegulatorItermMaxHover;
+    AP_Float PitchRegulatorItermMaxForwardFlight;
 
     AP_Float RollRegulatorPtermHover;
     AP_Float RollRegulatorPtermForwardFlight;
@@ -361,6 +363,8 @@ private:
     AP_Float RollRegulatorItermForwardFlight;
     AP_Float RollRegulatorDtermHover;
     AP_Float RollRegulatorDtermForwardFlight;
+    AP_Float RollRegulatorItermMaxHover;
+    AP_Float RollRegulatorItermMaxForwardFlight;
 
     AP_Float YawRegulatorPtermHover;
     AP_Float YawRegulatorPtermForwardFlight;
@@ -368,6 +372,8 @@ private:
     AP_Float YawRegulatorItermForwardFlight;
     AP_Float YawRegulatorDtermHover;
     AP_Float YawRegulatorDtermForwardFlight;
+    AP_Float YawRegulatorItermMaxHover;
+    AP_Float YawRegulatorItermMaxForwardFlight;
 
 
 

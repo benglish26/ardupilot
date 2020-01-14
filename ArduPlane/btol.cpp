@@ -91,6 +91,10 @@ extern const AP_HAL::HAL& hal;
 #define DEFAULT_D_TERM_HOVER_PITCH 0.0f
 #define DEFAULT_D_TERM_HOVER_FORWARD_FLIGHT_PITCH 0.0f
 
+
+#define DEFAULT_I_TERM_MAX_HOVER_PITCH 0.0f
+#define DEFAULT_I_TERM_MAX_FORWARD_FLIGHT_PITCH 0.0f
+
 #define DEFAULT_P_TERM_HOVER_ROLL 0.0f
 #define DEFAULT_P_TERM_HOVER_FORWARD_FLIGHT_ROLL 0.0f
 #define DEFAULT_I_TERM_HOVER_ROLL 0.0f
@@ -98,12 +102,18 @@ extern const AP_HAL::HAL& hal;
 #define DEFAULT_D_TERM_HOVER_ROLL 0.0f
 #define DEFAULT_D_TERM_HOVER_FORWARD_FLIGHT_ROLL 0.0f
 
+#define DEFAULT_I_TERM_MAX_HOVER_ROLL 0.0f
+#define DEFAULT_I_TERM_MAX_FORWARD_FLIGHT_ROLL 0.0f
+
 #define DEFAULT_P_TERM_HOVER_YAW 0.0f
 #define DEFAULT_P_TERM_HOVER_FORWARD_FLIGHT_YAW 0.0f
 #define DEFAULT_I_TERM_HOVER_YAW 0.0f
 #define DEFAULT_I_TERM_HOVER_FORWARD_FLIGHT_YAW 0.0f
 #define DEFAULT_D_TERM_HOVER_YAW 0.0f
 #define DEFAULT_D_TERM_HOVER_FORWARD_FLIGHT_YAW 0.0f
+
+#define DEFAULT_I_TERM_MAX_HOVER_YAW 0.0f
+#define DEFAULT_I_TERM_MAX_FORWARD_FLIGHT_YAW 0.0f
 
 #define DEFAULT_COMMAND_GAIN_PASSTHROUGH_ACCELERATION_ROLL  10.0f
 #define DEFAULT_COMMAND_GAIN_PASSTHROUGH_ACCELERATION_PITCH  10.0f
@@ -199,6 +209,16 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
     AP_GROUPINFO("R_AeDamH",        47, BTOL_Controller, aeroDampingBaselineHoverRoll,        DEFAULT_AERO_DAMPING_ROLL_HOVER),
     AP_GROUPINFO("P_AeDamH",        48, BTOL_Controller, aeroDampingBaselineHoverPitch,        DEFAULT_AERO_DAMPING_PITCH_HOVER),
     AP_GROUPINFO("Y_AeDamH",        49, BTOL_Controller, aeroDampingBaselineHoverYaw,        DEFAULT_AERO_DAMPING_YAW_HOVER),
+
+    AP_GROUPINFO("P_I_Max_H",        50, BTOL_Controller, PitchRegulatorItermMaxHover,        DEFAULT_I_TERM_MAX_HOVER_PITCH),
+    AP_GROUPINFO("P_I_Max_FF",        51, BTOL_Controller, PitchRegulatorItermMaxForwardFlight,        DEFAULT_I_TERM_MAX_FORWARD_FLIGHT_PITCH),
+
+    AP_GROUPINFO("R_I_Max_H",        52, BTOL_Controller, RollRegulatorItermMaxHover,        DEFAULT_I_TERM_MAX_HOVER_ROLL),
+    AP_GROUPINFO("R_I_Max_FF",        53, BTOL_Controller, RollRegulatorItermMaxForwardFlight,        DEFAULT_I_TERM_MAX_FORWARD_FLIGHT_ROLL),
+    
+    AP_GROUPINFO("Y_I_Max_H",        54, BTOL_Controller, YawRegulatorItermMaxHover,        DEFAULT_I_TERM_MAX_HOVER_YAW),
+    AP_GROUPINFO("Y_I_Max_FF",        55, BTOL_Controller, YawRegulatorItermMaxForwardFlight,        DEFAULT_I_TERM_MAX_FORWARD_FLIGHT_YAW),
+
 
 //Make sure that the number is progressed!
 	AP_GROUPEND
@@ -836,6 +856,7 @@ float BTOL_Controller::pitchRateRegulator(float targetRate, float measuredRate, 
     float proportionalCoef = PitchRegulatorPtermHover + dynamicPressureRatio * (PitchRegulatorPtermForwardFlight - PitchRegulatorPtermHover);
     float integralCoef = PitchRegulatorItermHover + dynamicPressureRatio * (PitchRegulatorItermForwardFlight - PitchRegulatorItermHover);
     float derivitiveCoef = PitchRegulatorDtermHover + dynamicPressureRatio * (PitchRegulatorDtermForwardFlight - PitchRegulatorDtermHover);
+    float integratorMax = PitchRegulatorItermMaxHover + dynamicPressureRatio * (PitchRegulatorItermMaxForwardFlight - PitchRegulatorItermMaxHover);
     //look up the aeroRateDampingCoeficent 
     float aeroRateDampingCoeficent = 0.0f; //this will be a negative term.
     aeroRateDampingCoeficent = aeroDampingBaselineHoverPitch + aeroDampingVsTrueAirspeedCoefPitch * trueAirspeed;
@@ -846,20 +867,16 @@ float BTOL_Controller::pitchRateRegulator(float targetRate, float measuredRate, 
     
     float error = targetRate-measuredRate;
     float derivative = (error - errorLast) / deltaTime;
-    float integratorMax = 10.0; //TODO: Paramaterize this.
     integratorValue += error * deltaTime;
     integratorValue = constrain_float(integratorValue, -integratorMax, integratorMax);
-
 
 
     float proportionalContribution = proportionalCoef * error;
     float integralContribution = integralCoef * integratorValue;  //I'm not using a reset time or reset rate so we can turn off this term if needed.
     float derivitiveContribution = derivitiveCoef * derivative;
-
     float regulatorAccelerationContribution = proportionalContribution + integralContribution + derivitiveContribution;
 
     //float regulatorTorqueContribution = 0.0f;
-
     float regulatorTorqueContribution = aircraftProperties.momentOfInertiaPitch * regulatorAccelerationContribution;
 
     torqueDemand = feedForwardTorque + regulatorTorqueContribution;
@@ -948,7 +965,8 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
     if(state.regulatorMode == CONTROLLER_STATE_REGULATOR_MODE_RATE)
     {
         desiredMomentX = get_rate_roll_pid().update_all(command.targetRollRate,_ahrs.get_gyro().x, false) * aircraftProperties.momentOfInertiaRoll;
-        desiredMomentY = get_rate_pitch_pid().update_all(command.targetPitchRate,_ahrs.get_gyro().y, false) * aircraftProperties.momentOfInertiaPitch;
+        //desiredMomentY = get_rate_pitch_pid().update_all(command.targetPitchRate,_ahrs.get_gyro().y, false) * aircraftProperties.momentOfInertiaPitch;
+        desiredMomentY = pitchRateRegulator(command.targetRollRate, _ahrs.get_gyro().y, dynamicPressure, sqrtf(dynamicPressure), dt);
         desiredMomentZ = get_rate_yaw_pid().update_all(command.targetYawRate,_ahrs.get_gyro().z, false) * aircraftProperties.momentOfInertiaYaw;
     }
 
