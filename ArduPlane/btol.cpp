@@ -847,6 +847,11 @@ float BTOL_Controller::pitchRateRegulator(float targetRate, float measuredRate, 
         // don't process inf or NaN
     //if (!isfinite(target) || !isfinite(measurement)) {
    //     return 0.0f;
+
+    if (isnan(targetRate) || isnan(measuredRate)) {
+        AP::internalerror().error(AP_InternalError::error_t::constraining_nan);
+        return 0.0f;
+    }
    // }
     static float errorLast = 0.0f;
     static float integratorValue = 0.0f;
@@ -856,7 +861,9 @@ float BTOL_Controller::pitchRateRegulator(float targetRate, float measuredRate, 
     float proportionalCoef = PitchRegulatorPtermHover + dynamicPressureRatio * (PitchRegulatorPtermForwardFlight - PitchRegulatorPtermHover);
     float integralCoef = PitchRegulatorItermHover + dynamicPressureRatio * (PitchRegulatorItermForwardFlight - PitchRegulatorItermHover);
     float derivitiveCoef = PitchRegulatorDtermHover + dynamicPressureRatio * (PitchRegulatorDtermForwardFlight - PitchRegulatorDtermHover);
-    float integratorMax = PitchRegulatorItermMaxHover + dynamicPressureRatio * (PitchRegulatorItermMaxForwardFlight - PitchRegulatorItermMaxHover);
+    float integratorMax = PitchRegulatorItermMaxHover + dynamicPressureRatio * (PitchRegulatorItermMaxForwardFlight - PitchRegulatorItermMaxHover); //This is what's breaking it.
+
+
     //look up the aeroRateDampingCoeficent 
     float aeroRateDampingCoeficent = 0.0f; //this will be a negative term.
     aeroRateDampingCoeficent = aeroDampingBaselineHoverPitch + aeroDampingVsTrueAirspeedCoefPitch * trueAirspeed;
@@ -868,6 +875,7 @@ float BTOL_Controller::pitchRateRegulator(float targetRate, float measuredRate, 
     float error = targetRate-measuredRate;
     float derivative = (error - errorLast) / deltaTime;
     integratorValue += error * deltaTime;
+    integratorMax = 0.0f; //trying to see if there is a nan issue.
     integratorValue = constrain_float(integratorValue, -integratorMax, integratorMax);
 
 
@@ -966,7 +974,7 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
     {
         desiredMomentX = get_rate_roll_pid().update_all(command.targetRollRate,_ahrs.get_gyro().x, false) * aircraftProperties.momentOfInertiaRoll;
         //desiredMomentY = get_rate_pitch_pid().update_all(command.targetPitchRate,_ahrs.get_gyro().y, false) * aircraftProperties.momentOfInertiaPitch;
-        desiredMomentY = pitchRateRegulator(command.targetRollRate, _ahrs.get_gyro().y, dynamicPressure, sqrtf(dynamicPressure), dt);
+        desiredMomentY = pitchRateRegulator(command.targetPitchRate, _ahrs.get_gyro().y, dynamicPressure, sqrtf(dynamicPressure), dt);
         desiredMomentZ = get_rate_yaw_pid().update_all(command.targetYawRate,_ahrs.get_gyro().z, false) * aircraftProperties.momentOfInertiaYaw;
     }
 
