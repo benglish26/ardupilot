@@ -166,9 +166,9 @@ public:
     BTOL_Controller(AP_AHRS &ahrs, const AP_Vehicle::FixedWing &parms): 
     _ahrs(ahrs), 
     aparm(parms),
-    _pid_rate_roll(AC_PID_ROLL_RATE_P, AC_PID_ROLL_RATE_I, AC_PID_ROLL_RATE_D, AC_PID_ROLL_RATE_IMAX, AC_PID_ROLL_RATE_FF, AC_PID_ROLL_RATE_FILTER_T, AC_PID_ROLL_RATE_FILTER_E, AC_PID_ROLL_RATE_FILTER_D, PID_400HZ_DT),
-    _pid_rate_pitch(AC_PID_PITCH_RATE_P, AC_PID_PITCH_RATE_I, AC_PID_PITCH_RATE_D, AC_PID_PITCH_RATE_IMAX, AC_PID_PITCH_RATE_FF, AC_PID_PITCH_RATE_FILTER_T, AC_PID_PITCH_RATE_FILTER_E, AC_PID_PITCH_RATE_FILTER_D, PID_400HZ_DT),
-    _pid_rate_yaw(AC_PID_YAW_RATE_P, AC_PID_YAW_RATE_I, AC_PID_YAW_RATE_D, AC_PID_YAW_RATE_IMAX, AC_PID_YAW_RATE_FF, AC_PID_YAW_RATE_FILTER_T, AC_PID_YAW_RATE_FILTER_E, AC_PID_YAW_RATE_FILTER_D, PID_400HZ_DT),
+    //_pid_rate_roll(AC_PID_ROLL_RATE_P, AC_PID_ROLL_RATE_I, AC_PID_ROLL_RATE_D, AC_PID_ROLL_RATE_IMAX, AC_PID_ROLL_RATE_FF, AC_PID_ROLL_RATE_FILTER_T, AC_PID_ROLL_RATE_FILTER_E, AC_PID_ROLL_RATE_FILTER_D, PID_400HZ_DT),
+    //_pid_rate_pitch(AC_PID_PITCH_RATE_P, AC_PID_PITCH_RATE_I, AC_PID_PITCH_RATE_D, AC_PID_PITCH_RATE_IMAX, AC_PID_PITCH_RATE_FF, AC_PID_PITCH_RATE_FILTER_T, AC_PID_PITCH_RATE_FILTER_E, AC_PID_PITCH_RATE_FILTER_D, PID_400HZ_DT),
+    //_pid_rate_yaw(AC_PID_YAW_RATE_P, AC_PID_YAW_RATE_I, AC_PID_YAW_RATE_D, AC_PID_YAW_RATE_IMAX, AC_PID_YAW_RATE_FF, AC_PID_YAW_RATE_FILTER_T, AC_PID_YAW_RATE_FILTER_E, AC_PID_YAW_RATE_FILTER_D, PID_400HZ_DT),
     _regulatorPitch(0.0f, 0.0f, 0.001, 0.1),
     _regulatorRoll(0.0f, 0.0f, 0.001, 0.1),
     _regulatorYaw(0.0f, 0.0f, 0.001, 0.1)
@@ -252,6 +252,8 @@ public:
     float getRangeRatio(float value, float min, float max);
 
     float pitchRateRegulator(float targetRate, float measuredRate, float dynamicPressure, float trueAirspeed, float deltaTime);
+    float rollRateRegulator(float targetRate, float measuredRate, float dynamicPressure, float trueAirspeed, float deltaTime);
+    float yawRateRegulator(float targetRate, float measuredRate, float dynamicPressure, float trueAirspeed, float deltaTime);
 
     void setDesiredPassthroughAngularAccelerationRoll(float waX); //rad/s/s
     void setDesiredPassthroughAngularAccelerationPitch(float waY); //rad/s/s
@@ -309,9 +311,9 @@ public:
     AP_Float &getAircraftMass(void) { return aircraftMassInKg; } 
 
     // pid accessors
-    AC_PID &get_rate_roll_pid() { return _pid_rate_roll; } //don't know what this does or why we need it.
-    AC_PID &get_rate_pitch_pid() { return _pid_rate_pitch; }
-    AC_PID &get_rate_yaw_pid() { return _pid_rate_yaw; }
+  //  AC_PID &get_rate_roll_pid() { return _pid_rate_roll; } //don't know what this does or why we need it.
+  //  AC_PID &get_rate_pitch_pid() { return _pid_rate_pitch; }
+  //  AC_PID &get_rate_yaw_pid() { return _pid_rate_yaw; }
 
 private:
     AP_AHRS &_ahrs;
@@ -394,9 +396,9 @@ private:
     BTOL_Regulator _regulatorYaw;
 
     //From sub attitude control code...
-    AC_PID   _pid_rate_roll;
-    AC_PID   _pid_rate_pitch;
-    AC_PID   _pid_rate_yaw;
+    //AC_PID   _pid_rate_roll;
+    //AC_PID   _pid_rate_pitch;
+    //AC_PID   _pid_rate_yaw;
     //AP_AutoTune autotune;
 	uint32_t _last_t;
 	float _last_out;

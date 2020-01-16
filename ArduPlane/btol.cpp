@@ -124,9 +124,9 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
 	    // parameters from parent vehicle
 
 
-    AP_SUBGROUPINFO(_pid_rate_roll, "B_ROLL_", 0, BTOL_Controller, AC_PID),
-    AP_SUBGROUPINFO(_pid_rate_pitch, "B_PTCH_", 1, BTOL_Controller, AC_PID),
-    AP_SUBGROUPINFO(_pid_rate_yaw, "B_YAW_", 2, BTOL_Controller, AC_PID),
+    //AP_SUBGROUPINFO(_pid_rate_roll, "B_ROLL_", 0, BTOL_Controller, AC_PID),
+    //AP_SUBGROUPINFO(_pid_rate_pitch, "B_PTCH_", 1, BTOL_Controller, AC_PID),
+    //AP_SUBGROUPINFO(_pid_rate_yaw, "B_YAW_", 2, BTOL_Controller, AC_PID),
       
     // @Param: TCONST
 	// @DisplayName: Roll Time Constant
@@ -326,13 +326,13 @@ void Plane::update_btol() {  //50Hz
 
 
         // Reset the PID filters
-        g2.btolController.get_rate_roll_pid().reset_filter();
-        g2.btolController.get_rate_pitch_pid().reset_filter();
-        g2.btolController.get_rate_yaw_pid().reset_filter();
+       // g2.btolController.get_rate_roll_pid().reset_filter();
+       // g2.btolController.get_rate_pitch_pid().reset_filter();
+       // g2.btolController.get_rate_yaw_pid().reset_filter();
 
-        g2.btolController.get_rate_roll_pid().reset_I();
-        g2.btolController.get_rate_pitch_pid().reset_I();
-        g2.btolController.get_rate_yaw_pid().reset_I();
+       // g2.btolController.get_rate_roll_pid().reset_I();
+       // g2.btolController.get_rate_pitch_pid().reset_I();
+       // g2.btolController.get_rate_yaw_pid().reset_I();
     }
 
 
@@ -842,6 +842,48 @@ float BTOL_Controller::getRangeRatio(float value, float min, float max)
     return ratio;
 }
 
+float BTOL_Controller::yawRateRegulator(float targetRate, float measuredRate, float dynamicPressure, float trueAirspeed, float deltaTime)
+{
+    //Sanitize inputs.  TODO.
+
+    float torqueDemand = 0.0f;
+    //get the coeficents (some of them scale with dynamic pressure or true arispeed)
+    float dynamicPressureRatio = getRangeRatio(dynamicPressure, 0.0f, getTopOfTransitionDynamicPressure());  //this should be scaled with dynamic pressure, not capped...but we'll start here.
+    float proportionalCoef = YawRegulatorPtermHover + dynamicPressureRatio * (YawRegulatorPtermForwardFlight - YawRegulatorPtermHover);
+    float integralCoef = YawRegulatorItermHover + dynamicPressureRatio * (YawRegulatorItermForwardFlight - YawRegulatorItermHover);
+    float derivitiveCoef = YawRegulatorDtermHover + dynamicPressureRatio * (YawRegulatorDtermForwardFlight - YawRegulatorDtermHover);
+    float integratorMax = YawRegulatorItermMaxHover + dynamicPressureRatio * (YawRegulatorItermMaxForwardFlight - YawRegulatorItermMaxHover); //This is what's breaking it.
+
+    //look up the aeroRateDampingCoeficent 
+    float aeroRateDampingCoeficent = 0.0f; //this will be a negative term.
+    aeroRateDampingCoeficent = aeroDampingBaselineHoverYaw + aeroDampingVsTrueAirspeedCoefYaw * trueAirspeed;
+
+    //get the torque demand.
+    torqueDemand = _regulatorYaw.getTorqueDemand(targetRate,measuredRate,deltaTime,proportionalCoef,integralCoef,derivitiveCoef,integratorMax, aeroRateDampingCoeficent,aircraftProperties.momentOfInertiaYaw);
+    return torqueDemand;
+}
+
+float BTOL_Controller::rollRateRegulator(float targetRate, float measuredRate, float dynamicPressure, float trueAirspeed, float deltaTime)
+{
+    //Sanitize inputs.  TODO.
+
+    float torqueDemand = 0.0f;
+    //get the coeficents (some of them scale with dynamic pressure or true arispeed)
+    float dynamicPressureRatio = getRangeRatio(dynamicPressure, 0.0f, getTopOfTransitionDynamicPressure());  //this should be scaled with dynamic pressure, not capped...but we'll start here.
+    float proportionalCoef = RollRegulatorPtermHover + dynamicPressureRatio * (RollRegulatorPtermForwardFlight - RollRegulatorPtermHover);
+    float integralCoef = RollRegulatorItermHover + dynamicPressureRatio * (RollRegulatorItermForwardFlight - RollRegulatorItermHover);
+    float derivitiveCoef = RollRegulatorDtermHover + dynamicPressureRatio * (RollRegulatorDtermForwardFlight - RollRegulatorDtermHover);
+    float integratorMax = RollRegulatorItermMaxHover + dynamicPressureRatio * (RollRegulatorItermMaxForwardFlight - RollRegulatorItermMaxHover); //This is what's breaking it.
+
+    //look up the aeroRateDampingCoeficent 
+    float aeroRateDampingCoeficent = 0.0f; //this will be a negative term.
+    aeroRateDampingCoeficent = aeroDampingBaselineHoverRoll + aeroDampingVsTrueAirspeedCoefRoll * trueAirspeed;
+
+    //get the torque demand.
+    torqueDemand = _regulatorRoll.getTorqueDemand(targetRate,measuredRate,deltaTime,proportionalCoef,integralCoef,derivitiveCoef,integratorMax, aeroRateDampingCoeficent,aircraftProperties.momentOfInertiaRoll);
+    return torqueDemand;
+}
+
 float BTOL_Controller::pitchRateRegulator(float targetRate, float measuredRate, float dynamicPressure, float trueAirspeed, float deltaTime)
 {
     //Sanitize inputs.  TODO.
@@ -885,6 +927,10 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
     float desiredMomentY = 0.0f;
     float desiredMomentZ = 0.0f;
 
+    float targetYawRate = 0.0f;
+    float targetPitchRate = 0.0f;
+    float targetRollRate = 0.0f;
+
     if(state.regulatorMode == CONTROLLER_STATE_REGULATOR_MODE_ATTITUDE)
     {
       //  Attitude Command ...will be useful later...need to figure out how to get both!
@@ -910,8 +956,10 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         float innerStabilizationAnglePitch = dynamicPressureRatio * FORWARD_FLIGHT_PITCH_INNER_ANGLE;
         float outerStabilizationAnglePitch = dynamicPressureRatio * (FORWARD_FLIGHT_PITCH_OUTER_ANGLE - HOVER_FLIGHT_PITCH_ANGLE_OUTER) + HOVER_FLIGHT_PITCH_ANGLE_OUTER;
 
-        float targetRollRate = command.targetRollRate + getAugmentedStabilityRatioWithinAngleRange(_ahrs.get_roll(), innerStabilizationAngleRoll, outerStabilizationAngleRoll) * getRollRateCommandGain();
-        float targetPitchRate = command.targetPitchRate + getAugmentedStabilityRatioWithinAngleRange(_ahrs.get_pitch(), innerStabilizationAnglePitch, outerStabilizationAnglePitch) * getPitchRateCommandGain();
+        targetRollRate = command.targetRollRate + getAugmentedStabilityRatioWithinAngleRange(_ahrs.get_roll(), innerStabilizationAngleRoll, outerStabilizationAngleRoll) * getRollRateCommandGain();
+        targetPitchRate = command.targetPitchRate + getAugmentedStabilityRatioWithinAngleRange(_ahrs.get_pitch(), innerStabilizationAnglePitch, outerStabilizationAnglePitch) * getPitchRateCommandGain();
+        targetYawRate = command.targetYawRate; //can add auto coordination here.... 
+        //float lateralAcceleration = _ahrs.get_accel().y; //lateral Acceleration.
 
         //could try summing the demanded rates and the attitude stability instead of this explicit values?
     //    float targetRollRate = command.targetRollRate + getAugmentedStabilityRatioWithinAngleRange(_ahrs.get_roll(), 0.0f, 1.0f) * getRollRateCommandGain();
@@ -919,11 +967,32 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
 
 
         //get_rate_roll_pid()
-        desiredMomentX = get_rate_roll_pid().update_all(targetRollRate,_ahrs.get_gyro().x, false) * aircraftProperties.momentOfInertiaRoll;
+        //desiredMomentX = get_rate_roll_pid().update_all(targetRollRate,_ahrs.get_gyro().x, false) * aircraftProperties.momentOfInertiaRoll;
         //desiredMomentY = get_rate_pitch_pid().update_all(targetPitchRate,_ahrs.get_gyro().y, false) * aircraftProperties.momentOfInertiaPitch;
+       // targetYawRate = command.targetYawRate;
 
+    }
+
+    if(state.regulatorMode == CONTROLLER_STATE_REGULATOR_MODE_RATE)
+    {
+        targetPitchRate = command.targetPitchRate;
+        targetRollRate = command.targetRollRate;
+        targetYawRate = command.targetYawRate;
+    }
+
+        //overwrite desire moments if in passthrough test mode.
+    if(state.regulatorMode == CONTROLLER_STATE_REGULATOR_MODE_PASSTHROUGH)
+    {
+        desiredMomentX = command.passthroughAngularAccelerationRoll * aircraftProperties.momentOfInertiaRoll; //passthrough to start to help build effector blender.
+        desiredMomentY = command.passthroughAngularAccelerationPitch * aircraftProperties.momentOfInertiaPitch;
+        desiredMomentZ = command.passthroughAngularAccelerationYaw * aircraftProperties.momentOfInertiaYaw;
+        //acceleration * moment of inertia
+    }else{
+        //handle non-passthrough regulation.
         desiredMomentY = pitchRateRegulator(targetPitchRate, _ahrs.get_gyro().y, dynamicPressure, sqrtf(dynamicPressure), dt);
-
+        desiredMomentX = rollRateRegulator(targetRollRate, _ahrs.get_gyro().y, dynamicPressure, sqrtf(dynamicPressure), dt);
+        desiredMomentZ = rollRateRegulator(targetYawRate, _ahrs.get_gyro().y, dynamicPressure, sqrtf(dynamicPressure), dt);
+    }
         //float lateralAcceleration = _ahrs.get_accel().y; //lateral Acceleration.
 
         //_ahrs.get_accel(). adsaf
@@ -937,16 +1006,16 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
 
 
         //perhaps this should be pilot input + rate stability?  as we need to be able to remove rate stability in forward flight and apply some turn coordination, if needed.
-        desiredMomentZ = get_rate_yaw_pid().update_all(command.targetYawRate,_ahrs.get_gyro().z, false) * aircraftProperties.momentOfInertiaYaw;
-    }
+       // desiredMomentZ = get_rate_yaw_pid().update_all(command.targetYawRate,_ahrs.get_gyro().z, false) * aircraftProperties.momentOfInertiaYaw;
+   // }
 
-    if(state.regulatorMode == CONTROLLER_STATE_REGULATOR_MODE_RATE)
+    /*if(state.regulatorMode == CONTROLLER_STATE_REGULATOR_MODE_RATE)
     {
         desiredMomentX = get_rate_roll_pid().update_all(command.targetRollRate,_ahrs.get_gyro().x, false) * aircraftProperties.momentOfInertiaRoll;
         //desiredMomentY = get_rate_pitch_pid().update_all(command.targetPitchRate,_ahrs.get_gyro().y, false) * aircraftProperties.momentOfInertiaPitch;
         desiredMomentY = pitchRateRegulator(command.targetPitchRate, _ahrs.get_gyro().y, dynamicPressure, sqrtf(dynamicPressure), dt);
         desiredMomentZ = get_rate_yaw_pid().update_all(command.targetYawRate,_ahrs.get_gyro().z, false) * aircraftProperties.momentOfInertiaYaw;
-    }
+    }*/
 
 
 
@@ -985,19 +1054,12 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
 
     //Log the PID values.
     //not sure what to put in the identifier enum  just going to try using the default ones...because the defaults should't be running, because I disabled them.
-    AP::logger().Write_PID(LOG_PIDR_MSG, get_rate_roll_pid().get_pid_info());
-    AP::logger().Write_PID(LOG_PIDP_MSG, get_rate_pitch_pid().get_pid_info());
-    AP::logger().Write_PID(LOG_PIDY_MSG, get_rate_yaw_pid().get_pid_info());
+   // AP::logger().Write_PID(LOG_PIDR_MSG, get_rate_roll_pid().get_pid_info());
+   // AP::logger().Write_PID(LOG_PIDP_MSG, get_rate_pitch_pid().get_pid_info());
+   // AP::logger().Write_PID(LOG_PIDY_MSG, get_rate_yaw_pid().get_pid_info());
 
 
-    //overwrite desire moments if in passthrough test mode.
-    if(state.regulatorMode == CONTROLLER_STATE_REGULATOR_MODE_PASSTHROUGH)
-    {
-        desiredMomentX = command.passthroughAngularAccelerationRoll * aircraftProperties.momentOfInertiaRoll; //passthrough to start to help build effector blender.
-        desiredMomentY = command.passthroughAngularAccelerationPitch * aircraftProperties.momentOfInertiaPitch;
-        desiredMomentZ = command.passthroughAngularAccelerationYaw * aircraftProperties.momentOfInertiaYaw;
-        //acceleration * moment of inertia
-    }
+
         
 
     //add the torque from motor3 (assuming motors 1 and 2 cancel out!)
