@@ -2,6 +2,7 @@
 #include "config.h"
 #if BTOL_ENABLED == ENABLED
 #include "btol.h"
+//#include "btolRegulator.h"
 #include <utility>
 #include <AP_HAL/AP_HAL.h>
 #include <AP_Logger/AP_Logger.h>
@@ -843,18 +844,8 @@ float BTOL_Controller::getRangeRatio(float value, float min, float max)
 
 float BTOL_Controller::pitchRateRegulator(float targetRate, float measuredRate, float dynamicPressure, float trueAirspeed, float deltaTime)
 {
+    //Sanitize inputs.  TODO.
 
-        // don't process inf or NaN
-    //if (!isfinite(target) || !isfinite(measurement)) {
-   //     return 0.0f;
-
-    if (isnan(targetRate) || isnan(measuredRate)) {
-        AP::internalerror().error(AP_InternalError::error_t::constraining_nan);
-        return 0.0f;
-    }
-   // }
-    static float errorLast = 0.0f;
-    static float integratorValue = 0.0f;
     float torqueDemand = 0.0f;
     //get the coeficents (some of them scale with dynamic pressure or true arispeed)
     float dynamicPressureRatio = getRangeRatio(dynamicPressure, 0.0f, getTopOfTransitionDynamicPressure());  //this should be scaled with dynamic pressure, not capped...but we'll start here.
@@ -863,33 +854,12 @@ float BTOL_Controller::pitchRateRegulator(float targetRate, float measuredRate, 
     float derivitiveCoef = PitchRegulatorDtermHover + dynamicPressureRatio * (PitchRegulatorDtermForwardFlight - PitchRegulatorDtermHover);
     float integratorMax = PitchRegulatorItermMaxHover + dynamicPressureRatio * (PitchRegulatorItermMaxForwardFlight - PitchRegulatorItermMaxHover); //This is what's breaking it.
 
-
     //look up the aeroRateDampingCoeficent 
     float aeroRateDampingCoeficent = 0.0f; //this will be a negative term.
     aeroRateDampingCoeficent = aeroDampingBaselineHoverPitch + aeroDampingVsTrueAirspeedCoefPitch * trueAirspeed;
 
-     //calculate the feed-forward term which should oppose the damping we expect to encounter at the target rate.
-    float feedForwardTorque = -1.0f * (aeroRateDampingCoeficent * targetRate);  ///This needs to be an acceleration to work in this function...we could change the definition of the coeficents, or move rotational moment of inertia in here...
-
-    
-    float error = targetRate-measuredRate;
-    float derivative = (error - errorLast) / deltaTime;
-    integratorValue += error * deltaTime;
-    integratorMax = 0.0f; //trying to see if there is a nan issue.
-    integratorValue = constrain_float(integratorValue, -integratorMax, integratorMax);
-
-
-    float proportionalContribution = proportionalCoef * error;
-    float integralContribution = integralCoef * integratorValue;  //I'm not using a reset time or reset rate so we can turn off this term if needed.
-    float derivitiveContribution = derivitiveCoef * derivative;
-    float regulatorAccelerationContribution = proportionalContribution + integralContribution + derivitiveContribution;
-
-    //float regulatorTorqueContribution = 0.0f;
-    float regulatorTorqueContribution = aircraftProperties.momentOfInertiaPitch * regulatorAccelerationContribution;
-
-    torqueDemand = feedForwardTorque + regulatorTorqueContribution;
-
-    errorLast = error;
+    //get the torque demand.
+    torqueDemand = _regulatorPitch.getTorqueDemand(targetRate,measuredRate,deltaTime,proportionalCoef,integralCoef,derivitiveCoef,integratorMax, aeroRateDampingCoeficent,aircraftProperties.momentOfInertiaPitch);
     return torqueDemand;
 }
 

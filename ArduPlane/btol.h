@@ -10,6 +10,7 @@
 #include <AP_Math/AP_Math.h>
 #include <AC_PID/AC_PID.h>
 #include <AC_PID/AC_P.h>
+#include "btolRegulator.h"
 
 // default rate controller PID gains
 /*#define AC_ATC_HELI_RATE_RP_P                       0.024f
@@ -167,7 +168,11 @@ public:
     aparm(parms),
     _pid_rate_roll(AC_PID_ROLL_RATE_P, AC_PID_ROLL_RATE_I, AC_PID_ROLL_RATE_D, AC_PID_ROLL_RATE_IMAX, AC_PID_ROLL_RATE_FF, AC_PID_ROLL_RATE_FILTER_T, AC_PID_ROLL_RATE_FILTER_E, AC_PID_ROLL_RATE_FILTER_D, PID_400HZ_DT),
     _pid_rate_pitch(AC_PID_PITCH_RATE_P, AC_PID_PITCH_RATE_I, AC_PID_PITCH_RATE_D, AC_PID_PITCH_RATE_IMAX, AC_PID_PITCH_RATE_FF, AC_PID_PITCH_RATE_FILTER_T, AC_PID_PITCH_RATE_FILTER_E, AC_PID_PITCH_RATE_FILTER_D, PID_400HZ_DT),
-    _pid_rate_yaw(AC_PID_YAW_RATE_P, AC_PID_YAW_RATE_I, AC_PID_YAW_RATE_D, AC_PID_YAW_RATE_IMAX, AC_PID_YAW_RATE_FF, AC_PID_YAW_RATE_FILTER_T, AC_PID_YAW_RATE_FILTER_E, AC_PID_YAW_RATE_FILTER_D, PID_400HZ_DT)
+    _pid_rate_yaw(AC_PID_YAW_RATE_P, AC_PID_YAW_RATE_I, AC_PID_YAW_RATE_D, AC_PID_YAW_RATE_IMAX, AC_PID_YAW_RATE_FF, AC_PID_YAW_RATE_FILTER_T, AC_PID_YAW_RATE_FILTER_E, AC_PID_YAW_RATE_FILTER_D, PID_400HZ_DT),
+    _regulatorPitch(0.0f, 0.0f, 0.001, 0.1),
+    _regulatorRoll(0.0f, 0.0f, 0.001, 0.1),
+    _regulatorYaw(0.0f, 0.0f, 0.001, 0.1)
+    
     {
         AP_Param::setup_object_defaults(this, var_info);
         command.targetPitchAttitude = 0.0f;
@@ -384,7 +389,9 @@ private:
     float yawRateError;
 
 
-
+    BTOL_Regulator _regulatorPitch;
+    BTOL_Regulator _regulatorRoll;
+    BTOL_Regulator _regulatorYaw;
 
     //From sub attitude control code...
     AC_PID   _pid_rate_roll;
