@@ -76,6 +76,25 @@ float BTOL_Regulator::getTorqueDemand(float targetRate, float measuredRate, floa
 
     float torqueDemand = feedForwardTorque + regulatorTorqueContribution;
 
+    //For logging:
+    _lastRegulatorTarget = targetRate;
+    _lastRegulatorEstimate = measuredRate;
+    _lastRegulatorError = error;
+    _lastRegulatorPcoef = PCoef;
+    _lastRegulatorIcoef = ICoef;
+    _lastRegulatorDcoef = DCoef;
+    _lastRegulatorP = proportionalContribution;
+    _lastRegulatorD = derivitiveContribution;
+    _lastRegulatorI = integralContribution;
+    _lastRegulatorAccelerationContribution = regulatorAccelerationContribution;
+    _lastRegulatorTorqueContribution = regulatorTorqueContribution;
+    _lastRegulatorRateDampingCoef = rateDampingCoef;
+    _lastRegulatorFFTorqueDemand = feedForwardTorque;
+    _lastRegulatorTorqueDemand = torqueDemand;
+
+
+
+    //For Dterm.
     _lastError = error;
     return torqueDemand;
 }

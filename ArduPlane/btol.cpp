@@ -177,9 +177,9 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
     AP_GROUPINFO("LowPassF_R",        21, BTOL_Controller, lowpassFilterCuttofFrequencyRoll,        DEFAULT_LOWPASS_FILTER_CUTTOFF_FREQUENCY_ROLL),
     AP_GROUPINFO("LowPassF_Y",        22, BTOL_Controller, lowpassFilterCuttofFrequencyYaw,        DEFAULT_LOWPASS_FILTER_CUTTOFF_FREQUENCY_YAW),
 
-    AP_GROUPINFO("AeDamRCf",        23, BTOL_Controller, aeroDampingVsTrueAirspeedCoefRoll,        DEFAULT_AERO_DAMPING_ROLL_VS_TRUE_AIRSPEED_COEF),
-    AP_GROUPINFO("AeDamPCf",        24, BTOL_Controller, aeroDampingVsTrueAirspeedCoefPitch,        DEFAULT_AERO_DAMPING_PITCH_VS_TRUE_AIRSPEED_COEF),
-    AP_GROUPINFO("AeDamYCf",        25, BTOL_Controller, aeroDampingVsTrueAirspeedCoefYaw,        DEFAULT_AERO_DAMPING_YAW_VS_TRUE_AIRSPEED_COEF),
+    AP_GROUPINFO("R_AeDamCa",        23, BTOL_Controller, aeroDampingVsTrueAirspeedCoefRoll,        DEFAULT_AERO_DAMPING_ROLL_VS_TRUE_AIRSPEED_COEF),
+    AP_GROUPINFO("P_AeDamCa",        24, BTOL_Controller, aeroDampingVsTrueAirspeedCoefPitch,        DEFAULT_AERO_DAMPING_PITCH_VS_TRUE_AIRSPEED_COEF),
+    AP_GROUPINFO("Y_AeDamCa",        25, BTOL_Controller, aeroDampingVsTrueAirspeedCoefYaw,        DEFAULT_AERO_DAMPING_YAW_VS_TRUE_AIRSPEED_COEF),
 
    AP_GROUPINFO("P_P_Hov",         26, BTOL_Controller, PitchRegulatorPtermHover,               DEFAULT_P_TERM_HOVER_PITCH),
     AP_GROUPINFO("P_P_FF",         27, BTOL_Controller, PitchRegulatorPtermForwardFlight,        DEFAULT_P_TERM_HOVER_FORWARD_FLIGHT_PITCH),
@@ -478,6 +478,7 @@ void Plane::btol_stabilize() {
     //need to convert motor thrust to ESC commands using some scalar...ie: from newtons to scalar 0.0 to 1.0
 
     //calculate motor thrust vs voltage here...
+    //lets start by assuming a linear relationship between voltage and max thrust.
     #define THREE_CELL_BATTERY_VOLTAGE_FULL 12.6f
     //TODO: Consider what happens when we get a bad battery voltage.  Constrain battery voltage input also.  TODO.
     float batteryVoltageRatio = battery.voltage() / THREE_CELL_BATTERY_VOLTAGE_FULL;
@@ -1007,6 +1008,29 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         desiredMomentY = pitchRateRegulator(targetPitchRate, _ahrs.get_gyro().y, dynamicPressure, sqrtf(dynamicPressure), dt);
         desiredMomentX = rollRateRegulator(targetRollRate, _ahrs.get_gyro().y, dynamicPressure, sqrtf(dynamicPressure), dt);
         desiredMomentZ = yawRateRegulator(targetYawRate, _ahrs.get_gyro().y, dynamicPressure, sqrtf(dynamicPressure), dt);
+
+    AP::logger().Write("BREP", "TimeUS,q,es,E,cP,cI,cD,P,I,D,rA,rT,cRD,ffT,rT",
+                "S-ro", // units: seconds, rad/sec
+                "F000", // mult: 1e-6, 1e-2
+                "Qfff", // format: uint64_t, float
+                AP_HAL::micros64(),
+                (double)dynamicPressure,
+                (double)_regulatorPitch._lastRegulatorTarget,
+                (double)_regulatorPitch._lastRegulatorEstimate,
+                (double)_regulatorPitch._lastRegulatorError,
+                (double)_regulatorPitch._lastRegulatorPcoef,
+                (double)_regulatorPitch._lastRegulatorIcoef,
+                (double)_regulatorPitch._lastRegulatorDcoef,
+                (double)_regulatorPitch._lastRegulatorP,
+                (double)_regulatorPitch._lastRegulatorI,
+                (double)_regulatorPitch._lastRegulatorD,
+                (double)_regulatorPitch._lastRegulatorAccelerationContribution,
+                (double)_regulatorPitch._lastRegulatorTorqueContribution,
+                (double)_regulatorPitch._lastRegulatorRateDampingCoef,
+                (double)_regulatorPitch._lastRegulatorFFTorqueDemand,
+                (double)_regulatorPitch._lastRegulatorTorqueDemand
+                );
+        
     }
         //float lateralAcceleration = _ahrs.get_accel().y; //lateral Acceleration.
 
