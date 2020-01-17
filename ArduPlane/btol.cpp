@@ -476,9 +476,22 @@ void Plane::btol_stabilize() {
 
     //starting out expecting values from 0.0 to +1.0
     //need to convert motor thrust to ESC commands using some scalar...ie: from newtons to scalar 0.0 to 1.0
-    int16_t servoControlValueMotor1 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor1Thrust / g2.btolController.getMotor12MaxThrust()) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE); //this needs to be scaled and offset correctly TODO
-    int16_t servoControlValueMotor2 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor2Thrust / g2.btolController.getMotor12MaxThrust())* MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);
-    int16_t servoControlValueMotor3 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor3Thrust / g2.btolController.getMotor3MaxThrust()) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);  //isn't working.  Is stuck at 2000.
+
+    //calculate motor thrust vs voltage here...
+    #define THREE_CELL_BATTERY_VOLTAGE_FULL 12.6f
+    //TODO: Consider what happens when we get a bad battery voltage.  Constrain battery voltage input also.  TODO.
+    float batteryVoltageRatio = battery.voltage() / THREE_CELL_BATTERY_VOLTAGE_FULL;
+    if(batteryVoltageRatio > 1.0f) batteryVoltageRatio = 1.0f;
+    if(batteryVoltageRatio < 0.5f) batteryVoltageRatio = 0.5f; //constrain value
+
+    int16_t servoControlValueMotor1 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor1Thrust / g2.btolController.getMotor12MaxThrust()*batteryVoltageRatio) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE); //this needs to be scaled and offset correctly TODO
+    int16_t servoControlValueMotor2 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor2Thrust / g2.btolController.getMotor12MaxThrust()*batteryVoltageRatio)* MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);
+    int16_t servoControlValueMotor3 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor3Thrust / g2.btolController.getMotor3MaxThrust()*batteryVoltageRatio) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);  //isn't working.  Is stuck at 2000.
+
+
+    //int16_t servoControlValueMotor1 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor1Thrust / g2.btolController.getMotor12MaxThrust()) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE); //this needs to be scaled and offset correctly TODO
+    //int16_t servoControlValueMotor2 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor2Thrust / g2.btolController.getMotor12MaxThrust())* MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);
+    //int16_t servoControlValueMotor3 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor3Thrust / g2.btolController.getMotor3MaxThrust()) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);  //isn't working.  Is stuck at 2000.
 
     if(g2.btolController.getArmedState() != 1)
     {
@@ -515,10 +528,10 @@ void Plane::btol_stabilize() {
 //https://ardupilot.org/dev/docs/code-overview-adding-a-new-log-message.html
 
     uint64_t timeForLog = AP_HAL::micros64();
-    AP::logger().Write("BSTB", "TimeUS,dt_ms,dt_us,ft_us,dt_PID,c1,c2,c3,c4,c5,c6,c7,c8",
-                   "SSSSS--------", // units: seconds, rad/sec
-                   "F000000000000", // mult: 1e-6, 1e-2
-                   "QIIIfhhhhhhhh", // format: uint64_t, float
+    AP::logger().Write("BSTB", "TimeUS,dt_ms,dt_us,ft_us,dt_PID,c1,c2,c3,c4,c5,c6,c7,c8,bVr",
+                   "SSSSS---------", // units: seconds, rad/sec
+                   "F0000000000000", // mult: 1e-6, 1e-2
+                   "QIIIfhhhhhhhhf", // format: uint64_t, float
                    timeForLog,
                    dt_ms,
                    dt_us,
@@ -531,13 +544,14 @@ void Plane::btol_stabilize() {
                    servoControlValue5,
                    servoControlValueMotor1,
                    servoControlValueMotor2,
-                   servoControlValueMotor3
+                   servoControlValueMotor3,
+                   (double)batteryVoltageRatio
                    );
 
-AP::logger().Write("BEFF", "TimeUS,m1,m2,m3,e1,e2,t1,t2,mass",
-                   "S--------", // units: seconds, rad/sec
-                   "F00000000", // mult: 1e-6, 1e-2
-                   "Qffffffff", // format: uint64_t, float
+AP::logger().Write("BEFF", "TimeUS,m1,m2,m3,e1,e2,t1,t2,mass,VbatR",
+                   "S---------", // units: seconds, rad/sec
+                   "F000000000", // mult: 1e-6, 1e-2
+                   "Qfffffffff", // format: uint64_t, float
                    timeForLog,
                    (double)effectorCommands.motor1Thrust,
                    (double)effectorCommands.motor2Thrust,
@@ -546,7 +560,8 @@ AP::logger().Write("BEFF", "TimeUS,m1,m2,m3,e1,e2,t1,t2,mass",
                    (double)effectorCommands.elevon2Angle,
                    (double)effectorCommands.tilt1Angle,
                    (double)effectorCommands.tilt2Angle,
-                   (double)g2.btolController.getAircraftMass()
+                   (double)g2.btolController.getAircraftMass(),
+                   (double)batteryVoltageRatio
                     );
 //battery.read();
 
