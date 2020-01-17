@@ -1037,6 +1037,50 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
                 (double)_regulatorPitch._lastRegulatorFFTorqueDemand,
                 (double)_regulatorPitch._lastRegulatorTorqueDemand
                 );
+
+    AP::logger().Write("BRER", "TimeUS,q,es,E,cP,cI,cD,P,I,D,rA,rT,cRD,ffT,rT",
+                "S-ro", // units: seconds, rad/sec
+                "F000", // mult: 1e-6, 1e-2
+                "Qfff", // format: uint64_t, float
+                AP_HAL::micros64(),
+                (double)dynamicPressure,
+                (double)_regulatorRoll._lastRegulatorTarget,
+                (double)_regulatorRoll._lastRegulatorEstimate,
+                (double)_regulatorRoll._lastRegulatorError,
+                (double)_regulatorRoll._lastRegulatorPcoef,
+                (double)_regulatorRoll._lastRegulatorIcoef,
+                (double)_regulatorRoll._lastRegulatorDcoef,
+                (double)_regulatorRoll._lastRegulatorP,
+                (double)_regulatorRoll._lastRegulatorI,
+                (double)_regulatorRoll._lastRegulatorD,
+                (double)_regulatorRoll._lastRegulatorAccelerationContribution,
+                (double)_regulatorRoll._lastRegulatorTorqueContribution,
+                (double)_regulatorRoll._lastRegulatorRateDampingCoef,
+                (double)_regulatorRoll._lastRegulatorFFTorqueDemand,
+                (double)_regulatorRoll._lastRegulatorTorqueDemand
+                );
+
+    AP::logger().Write("BREY", "TimeUS,q,es,E,cP,cI,cD,P,I,D,rA,rT,cRD,ffT,rT",
+                "S-ro", // units: seconds, rad/sec
+                "F000", // mult: 1e-6, 1e-2
+                "Qfff", // format: uint64_t, float
+                AP_HAL::micros64(),
+                (double)dynamicPressure,
+                (double)_regulatorYaw._lastRegulatorTarget,
+                (double)_regulatorYaw._lastRegulatorEstimate,
+                (double)_regulatorYaw._lastRegulatorError,
+                (double)_regulatorYaw._lastRegulatorPcoef,
+                (double)_regulatorYaw._lastRegulatorIcoef,
+                (double)_regulatorYaw._lastRegulatorDcoef,
+                (double)_regulatorYaw._lastRegulatorP,
+                (double)_regulatorYaw._lastRegulatorI,
+                (double)_regulatorYaw._lastRegulatorD,
+                (double)_regulatorYaw._lastRegulatorAccelerationContribution,
+                (double)_regulatorYaw._lastRegulatorTorqueContribution,
+                (double)_regulatorYaw._lastRegulatorRateDampingCoef,
+                (double)_regulatorYaw._lastRegulatorFFTorqueDemand,
+                (double)_regulatorYaw._lastRegulatorTorqueDemand
+                );
         
     }
         //float lateralAcceleration = _ahrs.get_accel().y; //lateral Acceleration.
