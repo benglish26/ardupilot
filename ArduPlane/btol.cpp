@@ -991,7 +991,7 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         //handle non-passthrough regulation.
         desiredMomentY = pitchRateRegulator(targetPitchRate, _ahrs.get_gyro().y, dynamicPressure, sqrtf(dynamicPressure), dt);
         desiredMomentX = rollRateRegulator(targetRollRate, _ahrs.get_gyro().y, dynamicPressure, sqrtf(dynamicPressure), dt);
-        desiredMomentZ = rollRateRegulator(targetYawRate, _ahrs.get_gyro().y, dynamicPressure, sqrtf(dynamicPressure), dt);
+        desiredMomentZ = yawRateRegulator(targetYawRate, _ahrs.get_gyro().y, dynamicPressure, sqrtf(dynamicPressure), dt);
     }
         //float lateralAcceleration = _ahrs.get_accel().y; //lateral Acceleration.
 
