@@ -344,9 +344,12 @@ private:
     AP_Float motor3ThrustToTorqueCoef; //N to NM
     AP_Float elevonCoefLiftPerDeflection;
     AP_Float elevonControlMinimumDynamicPressure; //Pa
-    AP_Float lowpassFilterCuttofFrequencyPitch; //Pa
-    AP_Float lowpassFilterCuttofFrequencyRoll; //Pa
-    AP_Float lowpassFilterCuttofFrequencyYaw; //Pa
+    AP_Float lowpassFilterCuttofFrequencyPitch; //Hz
+    AP_Float lowpassFilterCuttofFrequencyRoll; //Hz
+    AP_Float lowpassFilterCuttofFrequencyYaw; //Hz
+    AP_Float lowpassFilterCuttofFrequencyElevonAngle; //Hz
+    AP_Float lowpassFilterCuttofFrequencyTiltAngle; //Hz
+ 
 
     AP_Float aeroDampingVsTrueAirspeedCoefRoll; //Torque
     AP_Float aeroDampingVsTrueAirspeedCoefPitch; //Torque

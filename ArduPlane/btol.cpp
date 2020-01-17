@@ -70,9 +70,9 @@ extern const AP_HAL::HAL& hal;
 #define DEFAULT_MOTOR3_THRUST_TO_TORQUE_COEF 0.025f //NM per N thrust.
 #define DEFAULT_ELEVON_COEF_OF_LIFT_PER_DEFLECTION 6.3f //(2*PI?)
 #define DEFAULT_ELEVON_MINIMUM_DYNAMIC_PRESSURE 50.0f
-#define DEFAULT_LOWPASS_FILTER_CUTTOFF_FREQUENCY_PITCH 0.0f
-#define DEFAULT_LOWPASS_FILTER_CUTTOFF_FREQUENCY_ROLL 0.0f
-#define DEFAULT_LOWPASS_FILTER_CUTTOFF_FREQUENCY_YAW 0.0f
+#define DEFAULT_LOWPASS_FILTER_CUTOFF_FREQUENCY_PITCH 0.0f
+#define DEFAULT_LOWPASS_FILTER_CUTOFF_FREQUENCY_ROLL 0.0f
+#define DEFAULT_LOWPASS_FILTER_CUTOFF_FREQUENCY_YAW 0.0f
 
 
 
@@ -116,9 +116,12 @@ extern const AP_HAL::HAL& hal;
 #define DEFAULT_I_TERM_MAX_HOVER_YAW 0.0f
 #define DEFAULT_I_TERM_MAX_FORWARD_FLIGHT_YAW 0.0f
 
-#define DEFAULT_COMMAND_GAIN_PASSTHROUGH_ACCELERATION_ROLL  10.0f
-#define DEFAULT_COMMAND_GAIN_PASSTHROUGH_ACCELERATION_PITCH  10.0f
-#define DEFAULT_COMMAND_GAIN_PASSTHROUGH_ACCELERATION_YAW  10.0f
+#define DEFAULT_COMMAND_GAIN_PASSTHROUGH_ACCELERATION_ROLL 10.0f
+#define DEFAULT_COMMAND_GAIN_PASSTHROUGH_ACCELERATION_PITCH 10.0f
+#define DEFAULT_COMMAND_GAIN_PASSTHROUGH_ACCELERATION_YAW 10.0f
+
+#define DEFAULT_LOWPASS_FILTER_CUTOFF_FREQUENCY_ELEVON_ANGLE 0.0f
+#define DEFAULT_LOWPASS_FILTER_CUTOFF_FREQUENCY_TILT_ANGLE 0.0f
 
 const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
 	    // parameters from parent vehicle
@@ -173,9 +176,9 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
     AP_GROUPINFO("M3_TRQ_RATO",        17, BTOL_Controller, motor3ThrustToTorqueCoef,        DEFAULT_MOTOR3_THRUST_TO_TORQUE_COEF),
     AP_GROUPINFO("Elvn_CL",        18, BTOL_Controller, elevonCoefLiftPerDeflection,        DEFAULT_ELEVON_COEF_OF_LIFT_PER_DEFLECTION),
     AP_GROUPINFO("Elvn_min_q",        19, BTOL_Controller, elevonControlMinimumDynamicPressure,        DEFAULT_ELEVON_MINIMUM_DYNAMIC_PRESSURE),
-    AP_GROUPINFO("LowPassF_P",        20, BTOL_Controller, lowpassFilterCuttofFrequencyPitch,        DEFAULT_LOWPASS_FILTER_CUTTOFF_FREQUENCY_PITCH),
-    AP_GROUPINFO("LowPassF_R",        21, BTOL_Controller, lowpassFilterCuttofFrequencyRoll,        DEFAULT_LOWPASS_FILTER_CUTTOFF_FREQUENCY_ROLL),
-    AP_GROUPINFO("LowPassF_Y",        22, BTOL_Controller, lowpassFilterCuttofFrequencyYaw,        DEFAULT_LOWPASS_FILTER_CUTTOFF_FREQUENCY_YAW),
+    AP_GROUPINFO("LowPassF_P",        20, BTOL_Controller, lowpassFilterCuttofFrequencyPitch,        DEFAULT_LOWPASS_FILTER_CUTOFF_FREQUENCY_PITCH),
+    AP_GROUPINFO("LowPassF_R",        21, BTOL_Controller, lowpassFilterCuttofFrequencyRoll,        DEFAULT_LOWPASS_FILTER_CUTOFF_FREQUENCY_ROLL),
+    AP_GROUPINFO("LowPassF_Y",        22, BTOL_Controller, lowpassFilterCuttofFrequencyYaw,        DEFAULT_LOWPASS_FILTER_CUTOFF_FREQUENCY_YAW),
 
     AP_GROUPINFO("R_AeDamCa",        23, BTOL_Controller, aeroDampingVsTrueAirspeedCoefRoll,        DEFAULT_AERO_DAMPING_ROLL_VS_TRUE_AIRSPEED_COEF),
     AP_GROUPINFO("P_AeDamCa",        24, BTOL_Controller, aeroDampingVsTrueAirspeedCoefPitch,        DEFAULT_AERO_DAMPING_PITCH_VS_TRUE_AIRSPEED_COEF),
@@ -219,6 +222,9 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
     
     AP_GROUPINFO("Y_I_Max_H",        54, BTOL_Controller, YawRegulatorItermMaxHover,        DEFAULT_I_TERM_MAX_HOVER_YAW),
     AP_GROUPINFO("Y_I_Max_FF",        55, BTOL_Controller, YawRegulatorItermMaxForwardFlight,        DEFAULT_I_TERM_MAX_FORWARD_FLIGHT_YAW),
+
+    AP_GROUPINFO("EA_FltCOF",        56, BTOL_Controller, lowpassFilterCuttofFrequencyElevonAngle,        DEFAULT_LOWPASS_FILTER_CUTOFF_FREQUENCY_ELEVON_ANGLE),
+    AP_GROUPINFO("TA_FltCOF",        57, BTOL_Controller, lowpassFilterCuttofFrequencyTiltAngle,        DEFAULT_LOWPASS_FILTER_CUTOFF_FREQUENCY_TILT_ANGLE),
 
 
 //Make sure that the number is progressed!
@@ -1178,11 +1184,21 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
             elevon2Angle = AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MIN_ANGLE;
         }
 
+        //lowpass filter the desired elevon angles
+        static float filteredElevon1Angle = 0.0;
+        filteredElevon1Angle = filteredElevon1Angle + getFilterAlpha(lowpassFilterCuttofFrequencyElevonAngle, dt)  * (elevon1Angle - filteredElevon1Angle);
+        elevon1Angle = filteredElevon1Angle;
+        static float filteredElevon2Angle = 0.0;
+        filteredElevon2Angle = filteredElevon2Angle + getFilterAlpha(lowpassFilterCuttofFrequencyElevonAngle, dt)  * (elevon2Angle - filteredElevon2Angle);
+        elevon2Angle = filteredElevon2Angle;
+
+
+
         //SOLVED: I think there is an issue here as pitch is resulting in a motor roll command.
         //Estimate how much moment the elevons are applying to the airframe based on the deflection, deflection to force gain (dynamic pressure), and arm)
         float estimatedAttainedElevonMomentY = elevon1Angle * elevonDeflectionToForceGain * 1.0f * distanceXFromCGElevonsAbsv  +   elevon2Angle * elevonDeflectionToForceGain * 1.0f * distanceXFromCGElevonsAbsv;
         float estimatedAttainedElevonMomentX = elevon1Angle * elevonDeflectionToForceGain * -1.0f * distanceYFromCGElevonsAbsv +   elevon2Angle * elevonDeflectionToForceGain * 1.0f * distanceYFromCGElevonsAbsv;
-
+        
         float residualElevonMomentX = desiredMomentX - estimatedAttainedElevonMomentX;
         float residualElevonMomentY = desiredMomentY - estimatedAttainedElevonMomentY;
 
@@ -1311,6 +1327,17 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         float motor2ForceDemand = calculateMotorThrustBasedOnTiltAngle(tilt2Angle, tiltCalculationMotor2ForceForward, tiltCalculationMotor2ForceUp, TILT_SATISFACTION_ANGLE_LOW, TILT_SATISFACTION_ANGLE_HIGH);
         
         float motor3ForceDemand = forceUpMotor3; //make sure can't be negative...or update the firmware so it can be!
+
+
+        //lowpass filter the desired elevon angles
+        static float filteredTilt1Angle = 0.0;
+        filteredTilt1Angle = filteredTilt1Angle + getFilterAlpha(lowpassFilterCuttofFrequencyElevonAngle, dt)  * (tilt1Angle - filteredTilt1Angle);
+        tilt1Angle = filteredTilt1Angle;
+        static float filteredTilt2Angle = 0.0;
+        filteredTilt2Angle = filteredTilt2Angle + getFilterAlpha(lowpassFilterCuttofFrequencyElevonAngle, dt)  * (tilt2Angle - filteredTilt2Angle);
+        tilt2Angle = filteredTilt2Angle;
+
+
 
         effectors.tilt1Angle = tilt1Angle;
         effectors.tilt2Angle = tilt2Angle;

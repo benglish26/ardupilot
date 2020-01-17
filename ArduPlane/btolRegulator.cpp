@@ -39,7 +39,7 @@ float BTOL_Regulator::getTorqueDemand(float targetRate, float measuredRate, floa
     }
 
     //Sanitize input values.
-    if(deltaTime < _minimumDeltaTime)
+    if(deltaTime < _minimumDeltaTime)  //this does get called on startup sometimes!
     {
         deltaTime = _minimumDeltaTime;
         throwWarning(2);
