@@ -1011,9 +1011,10 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         //acceleration * moment of inertia
     }else{
         //handle non-passthrough regulation.
+        desiredMomentZ = yawRateRegulator(targetYawRate, _ahrs.get_gyro().z, dynamicPressure, sqrtf(dynamicPressure), dt);
         desiredMomentY = pitchRateRegulator(targetPitchRate, _ahrs.get_gyro().y, dynamicPressure, sqrtf(dynamicPressure), dt);
-        desiredMomentX = rollRateRegulator(targetRollRate, _ahrs.get_gyro().y, dynamicPressure, sqrtf(dynamicPressure), dt);
-        desiredMomentZ = yawRateRegulator(targetYawRate, _ahrs.get_gyro().y, dynamicPressure, sqrtf(dynamicPressure), dt);
+        desiredMomentX = rollRateRegulator(targetRollRate, _ahrs.get_gyro().x, dynamicPressure, sqrtf(dynamicPressure), dt);
+       
 
     AP::logger().Write("BREP", "TimeUS,q,es,E,cP,cI,cD,P,I,D,rA,rT,cRD,ffT,rT",
                 "S-ro", // units: seconds, rad/sec
