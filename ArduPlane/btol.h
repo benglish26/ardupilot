@@ -309,6 +309,8 @@ public:
     AP_Float &getVerticalAccelerationThresholdToConsiderAircraftInHover(void) { return verticalAccelerationThresholdToConsiderAircraftInHover; } 
     AP_Float &getCenterOfMassLocationX(void) { return centerOfMassLocationX; } 
     AP_Float &getAircraftMass(void) { return aircraftMassInKg; } 
+    AP_Float &getBatteryVoltageCompensationCoeficent(void) { return BatteryVoltageCompensationCoeficent; } 
+
 
     // pid accessors
   //  AC_PID &get_rate_roll_pid() { return _pid_rate_roll; } //don't know what this does or why we need it.
@@ -385,7 +387,7 @@ private:
     AP_Float YawRegulatorItermMaxHover;
     AP_Float YawRegulatorItermMaxForwardFlight;
 
-
+    AP_Float BatteryVoltageCompensationCoeficent;
 
 
 

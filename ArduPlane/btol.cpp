@@ -225,7 +225,7 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
 
     AP_GROUPINFO("EA_FltCOF",        56, BTOL_Controller, lowpassFilterCuttofFrequencyElevonAngle,        DEFAULT_LOWPASS_FILTER_CUTOFF_FREQUENCY_ELEVON_ANGLE),
     AP_GROUPINFO("TA_FltCOF",        57, BTOL_Controller, lowpassFilterCuttofFrequencyTiltAngle,        DEFAULT_LOWPASS_FILTER_CUTOFF_FREQUENCY_TILT_ANGLE),
-
+    AP_GROUPINFO("VCompCoef",        58, BTOL_Controller, BatteryVoltageCompensationCoeficent,        1.0),
 
 //Make sure that the number is progressed!
 	AP_GROUPEND
@@ -487,7 +487,7 @@ void Plane::btol_stabilize() {
     //lets start by assuming a linear relationship between voltage and max thrust.
     #define THREE_CELL_BATTERY_VOLTAGE_FULL 12.6f
     //TODO: Consider what happens when we get a bad battery voltage.  Constrain battery voltage input also.  TODO.
-    float batteryVoltageRatio = battery.voltage() / THREE_CELL_BATTERY_VOLTAGE_FULL;
+    float batteryVoltageRatio = (battery.voltage() / THREE_CELL_BATTERY_VOLTAGE_FULL) * g2.btolController.getBatteryVoltageCompensationCoeficent();
     if(batteryVoltageRatio > 1.0f) batteryVoltageRatio = 1.0f;
     if(batteryVoltageRatio < 0.5f) batteryVoltageRatio = 0.5f; //constrain value
 
