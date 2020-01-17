@@ -1331,10 +1331,10 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
 
         //lowpass filter the desired elevon angles
         static float filteredTilt1Angle = 0.0;
-        filteredTilt1Angle = filteredTilt1Angle + getFilterAlpha(lowpassFilterCuttofFrequencyElevonAngle, dt)  * (tilt1Angle - filteredTilt1Angle);
+        filteredTilt1Angle = filteredTilt1Angle + getFilterAlpha(lowpassFilterCuttofFrequencyTiltAngle, dt)  * (tilt1Angle - filteredTilt1Angle);
         tilt1Angle = filteredTilt1Angle;
         static float filteredTilt2Angle = 0.0;
-        filteredTilt2Angle = filteredTilt2Angle + getFilterAlpha(lowpassFilterCuttofFrequencyElevonAngle, dt)  * (tilt2Angle - filteredTilt2Angle);
+        filteredTilt2Angle = filteredTilt2Angle + getFilterAlpha(lowpassFilterCuttofFrequencyTiltAngle, dt)  * (tilt2Angle - filteredTilt2Angle);
         tilt2Angle = filteredTilt2Angle;
 
 
