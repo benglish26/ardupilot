@@ -1017,9 +1017,9 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
        
 
     AP::logger().Write("BREP", "TimeUS,q,es,E,cP,cI,cD,P,I,D,rA,rT,cRD,ffT,rT",
-                "S-ro", // units: seconds, rad/sec
-                "F000", // mult: 1e-6, 1e-2
-                "Qfff", // format: uint64_t, float
+                "S--------------", // units: seconds, any
+                "F00000000000000", // mult: 1e-6, 1e-2
+                "Qffffffffffffff", // format: uint64_t, float
                 AP_HAL::micros64(),
                 (double)dynamicPressure,
                 (double)_regulatorPitch._lastRegulatorTarget,
@@ -1039,9 +1039,9 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
                 );
 
     AP::logger().Write("BRER", "TimeUS,q,es,E,cP,cI,cD,P,I,D,rA,rT,cRD,ffT,rT",
-                "S-ro", // units: seconds, rad/sec
-                "F000", // mult: 1e-6, 1e-2
-                "Qfff", // format: uint64_t, float
+                "S--------------", // units: seconds, any
+                "F00000000000000", // mult: 1e-6, 1e-2
+                "Qffffffffffffff", // format: uint64_t, float
                 AP_HAL::micros64(),
                 (double)dynamicPressure,
                 (double)_regulatorRoll._lastRegulatorTarget,
@@ -1061,9 +1061,9 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
                 );
 
     AP::logger().Write("BREY", "TimeUS,q,es,E,cP,cI,cD,P,I,D,rA,rT,cRD,ffT,rT",
-                "S-ro", // units: seconds, rad/sec
-                "F000", // mult: 1e-6, 1e-2
-                "Qfff", // format: uint64_t, float
+                "S--------------", // units: seconds, any
+                "F00000000000000", // mult: 1e-6, 1e-2
+                "Qffffffffffffff", // format: uint64_t, float
                 AP_HAL::micros64(),
                 (double)dynamicPressure,
                 (double)_regulatorYaw._lastRegulatorTarget,
