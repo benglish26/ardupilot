@@ -1016,7 +1016,7 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         desiredMomentX = rollRateRegulator(targetRollRate, _ahrs.get_gyro().x, dynamicPressure, sqrtf(dynamicPressure), dt);
        
 
-    AP::logger().Write("BREP", "TimeUS,q,es,E,cP,cI,cD,P,I,D,rA,rT,cRD,ffT,rT",
+    AP::logger().Write("BREP", "TimeUS,q,t,es,E,cP,cI,cD,P,I,D,rA,rT,cRD,ffT,rT",
                 "S--------------", // units: seconds, any
                 "F00000000000000", // mult: 1e-6, 1e-2
                 "Qffffffffffffff", // format: uint64_t, float
@@ -1038,7 +1038,7 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
                 (double)_regulatorPitch._lastRegulatorTorqueDemand
                 );
 
-    AP::logger().Write("BRER", "TimeUS,q,es,E,cP,cI,cD,P,I,D,rA,rT,cRD,ffT,rT",
+    AP::logger().Write("BRER", "TimeUS,q,t,es,E,cP,cI,cD,P,I,D,rA,rT,cRD,ffT,rT",
                 "S--------------", // units: seconds, any
                 "F00000000000000", // mult: 1e-6, 1e-2
                 "Qffffffffffffff", // format: uint64_t, float
@@ -1060,7 +1060,7 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
                 (double)_regulatorRoll._lastRegulatorTorqueDemand
                 );
 
-    AP::logger().Write("BREY", "TimeUS,q,es,E,cP,cI,cD,P,I,D,rA,rT,cRD,ffT,rT",
+    AP::logger().Write("BREY", "TimeUS,q,t,es,E,cP,cI,cD,P,I,D,rA,rT,cRD,ffT,rT",
                 "S--------------", // units: seconds, any
                 "F00000000000000", // mult: 1e-6, 1e-2
                 "Qffffffffffffff", // format: uint64_t, float
