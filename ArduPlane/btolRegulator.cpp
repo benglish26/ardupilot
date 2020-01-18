@@ -91,8 +91,8 @@ float BTOL_Regulator::getTorqueDemand(float targetRate, float measuredRate, floa
     _lastRegulatorRateDampingCoef = rateDampingCoef;
     _lastRegulatorFFTorqueDemand = feedForwardTorque;
     _lastRegulatorTorqueDemand = torqueDemand;
-
-
+    _lastRegulatorIntegralValue = _integratorValue;
+    _lastRegulatorIntegralValueMax = integratorMax;
 
     //For Dterm.
     _lastError = error;

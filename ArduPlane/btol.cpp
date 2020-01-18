@@ -1016,10 +1016,10 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         desiredMomentX = rollRateRegulator(targetRollRate, _ahrs.get_gyro().x, dynamicPressure, sqrtf(dynamicPressure), dt);
        
 
-    AP::logger().Write("BREP", "TimeUS,q,t,es,E,cP,cI,cD,P,I,D,rA,rT,cRD,ffT,rT",
-                "S--------------", // units: seconds, any
-                "F00000000000000", // mult: 1e-6, 1e-2
-                "Qffffffffffffff", // format: uint64_t, float
+    AP::logger().Write("BREP", "TimeUS,q,t,es,E,cP,cI,cD,P,I,D,rA,rT,cRD,ffT,rT,vI,mI",
+                "S----------------", // units: seconds, any
+                "F0000000000000000", // mult: 1e-6, 1e-2
+                "Qffffffffffffffff", // format: uint64_t, float
                 AP_HAL::micros64(),
                 (double)dynamicPressure,
                 (double)_regulatorPitch._lastRegulatorTarget,
@@ -1035,13 +1035,15 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
                 (double)_regulatorPitch._lastRegulatorTorqueContribution,
                 (double)_regulatorPitch._lastRegulatorRateDampingCoef,
                 (double)_regulatorPitch._lastRegulatorFFTorqueDemand,
-                (double)_regulatorPitch._lastRegulatorTorqueDemand
+                (double)_regulatorPitch._lastRegulatorTorqueDemand,
+                (double)_regulatorPitch._lastRegulatorIntegralValue,
+                (double)_regulatorPitch._lastRegulatorIntegralValueMax
                 );
 
-    AP::logger().Write("BRER", "TimeUS,q,t,es,E,cP,cI,cD,P,I,D,rA,rT,cRD,ffT,rT",
-                "S--------------", // units: seconds, any
-                "F00000000000000", // mult: 1e-6, 1e-2
-                "Qffffffffffffff", // format: uint64_t, float
+    AP::logger().Write("BRER", "TimeUS,q,t,es,E,cP,cI,cD,P,I,D,rA,rT,cRD,ffT,rT,vI,mI",
+                "S----------------", // units: seconds, any
+                "F0000000000000000", // mult: 1e-6, 1e-2
+                "Qffffffffffffffff", // format: uint64_t, float
                 AP_HAL::micros64(),
                 (double)dynamicPressure,
                 (double)_regulatorRoll._lastRegulatorTarget,
@@ -1057,13 +1059,15 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
                 (double)_regulatorRoll._lastRegulatorTorqueContribution,
                 (double)_regulatorRoll._lastRegulatorRateDampingCoef,
                 (double)_regulatorRoll._lastRegulatorFFTorqueDemand,
-                (double)_regulatorRoll._lastRegulatorTorqueDemand
+                (double)_regulatorRoll._lastRegulatorTorqueDemand,
+                (double)_regulatorRoll._lastRegulatorIntegralValue,
+                (double)_regulatorRoll._lastRegulatorIntegralValueMax
                 );
 
-    AP::logger().Write("BREY", "TimeUS,q,t,es,E,cP,cI,cD,P,I,D,rA,rT,cRD,ffT,rT",
-                "S--------------", // units: seconds, any
-                "F00000000000000", // mult: 1e-6, 1e-2
-                "Qffffffffffffff", // format: uint64_t, float
+    AP::logger().Write("BREY", "TimeUS,q,t,es,E,cP,cI,cD,P,I,D,rA,rT,cRD,ffT,rT,vI,mI",
+                "S----------------", // units: seconds, any
+                "F0000000000000000", // mult: 1e-6, 1e-2
+                "Qffffffffffffffff", // format: uint64_t, float
                 AP_HAL::micros64(),
                 (double)dynamicPressure,
                 (double)_regulatorYaw._lastRegulatorTarget,
@@ -1079,7 +1083,9 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
                 (double)_regulatorYaw._lastRegulatorTorqueContribution,
                 (double)_regulatorYaw._lastRegulatorRateDampingCoef,
                 (double)_regulatorYaw._lastRegulatorFFTorqueDemand,
-                (double)_regulatorYaw._lastRegulatorTorqueDemand
+                (double)_regulatorYaw._lastRegulatorTorqueDemand,
+                (double)_regulatorYaw._lastRegulatorIntegralValue,
+                (double)_regulatorYaw._lastRegulatorIntegralValueMax
                 );
         
     }

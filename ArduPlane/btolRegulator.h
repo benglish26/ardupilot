@@ -20,7 +20,9 @@ public:
         _lastRegulatorTorqueContribution(0.0f),
         _lastRegulatorRateDampingCoef(0.0f),
         _lastRegulatorFFTorqueDemand(0.0f),
-        _lastRegulatorTorqueDemand(0.0f)
+        _lastRegulatorTorqueDemand(0.0f),
+        _lastRegulatorIntegralValue(0.0f),
+        _lastRegulatorIntegralValueMax(0.0f)
     {
        //assignments done via intalizations in member initalizer list
 
@@ -47,6 +49,8 @@ float _lastRegulatorTorqueContribution;
 float _lastRegulatorRateDampingCoef;
 float _lastRegulatorFFTorqueDemand;
 float _lastRegulatorTorqueDemand;
+float _lastRegulatorIntegralValue;
+float _lastRegulatorIntegralValueMax;
 
 private:
     float _integratorValue;
