@@ -226,6 +226,10 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
     AP_GROUPINFO("EA_FltCOF",        56, BTOL_Controller, lowpassFilterCuttofFrequencyElevonAngle,        DEFAULT_LOWPASS_FILTER_CUTOFF_FREQUENCY_ELEVON_ANGLE),
     AP_GROUPINFO("TA_FltCOF",        57, BTOL_Controller, lowpassFilterCuttofFrequencyTiltAngle,        DEFAULT_LOWPASS_FILTER_CUTOFF_FREQUENCY_TILT_ANGLE),
     AP_GROUPINFO("VCompCoef",        58, BTOL_Controller, BatteryVoltageCompensationCoeficent,        1.0),
+    AP_GROUPINFO("MixTopQ",        59, BTOL_Controller, EffectorMixingDynamicPressureTop,        200),
+    AP_GROUPINFO("MixBotQ",        60, BTOL_Controller, EffectorMixingDynamicPressureBottom,        50),
+    AP_GROUPINFO("EleOvrflRAT",        61, BTOL_Controller, ElevonResidualOverflowRatio,        1.0),
+
 
 //Make sure that the number is progressed!
 	AP_GROUPEND
@@ -849,6 +853,7 @@ float BTOL_Controller::getRangeRatio(float value, float min, float max)
     float ratio = 0.0;
     if(max < min)
     {
+        //throw error.
         return 0.0f;
     }
 
@@ -1014,9 +1019,36 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         desiredMomentZ = yawRateRegulator(targetYawRate, _ahrs.get_gyro().z, dynamicPressure, sqrtf(dynamicPressure), dt);
         desiredMomentY = pitchRateRegulator(targetPitchRate, _ahrs.get_gyro().y, dynamicPressure, sqrtf(dynamicPressure), dt);
         desiredMomentX = rollRateRegulator(targetRollRate, _ahrs.get_gyro().x, dynamicPressure, sqrtf(dynamicPressure), dt);
+
+//Log things such as vertical rate, attitude, ext.
+/*
+    AP::logger().Write("BEST", "TimeUS,q",
+                "S----", // units: seconds, any
+                "F0000", // mult: 1e-6, 1e-2
+                "Qffff", // format: uint64_t, float
+                AP_HAL::micros64(),
+                (double)dynamicPressure,
+                (double)_ahrs.get_airspeed(),
+                (double)_ahrs.get_gyro().x,
+                (double)_ahrs.get_gyro().y,
+                (double)_ahrs.get_gyro().z,
+                (double)_ahrs.get_pitch(),
+                (double)_ahrs.get_roll(),
+                (double)_ahrs.get_yaw(),
+                (double)_ahrs.get_yaw_rate_earth(),
+                (double)_ahrs.getAOA(),
+                (double)_ahrs.getSSA(),
+                //(double)_ahrs.get_airspeed()
+                (double)_ahrs.groundspeed_vector().x,
+                (double)_ahrs.groundspeed_vector().y,
+                (double)_ahrs.initialised(),
+                (double)_ahrs.get_accel_ef_blended
+
+                
+                );*/
        
 
-    AP::logger().Write("BREP", "TimeUS,q,t,es,E,cP,cI,cD,P,I,D,rA,rT,cRD,ffT,rT,vI,mI",
+    AP::logger().Write("BREP", "TimeUS,q,t,es,E,cP,cI,cD,P,I,D,rA,rT,cRD,ffT,rtT,vI,mI",
                 "S----------------", // units: seconds, any
                 "F0000000000000000", // mult: 1e-6, 1e-2
                 "Qffffffffffffffff", // format: uint64_t, float
@@ -1035,12 +1067,12 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
                 (double)_regulatorPitch._lastRegulatorTorqueContribution,
                 (double)_regulatorPitch._lastRegulatorRateDampingCoef,
                 (double)_regulatorPitch._lastRegulatorFFTorqueDemand,
-                (double)_regulatorPitch._lastRegulatorTorqueDemand,
+                (double)_regulatorPitch._lastOutputTotalTorqueDemand,
                 (double)_regulatorPitch._lastRegulatorIntegralValue,
                 (double)_regulatorPitch._lastRegulatorIntegralValueMax
                 );
 
-    AP::logger().Write("BRER", "TimeUS,q,t,es,E,cP,cI,cD,P,I,D,rA,rT,cRD,ffT,rT,vI,mI",
+    AP::logger().Write("BRER", "TimeUS,q,t,es,E,cP,cI,cD,P,I,D,rA,rT,cRD,ffT,rtT,vI,mI",
                 "S----------------", // units: seconds, any
                 "F0000000000000000", // mult: 1e-6, 1e-2
                 "Qffffffffffffffff", // format: uint64_t, float
@@ -1059,12 +1091,12 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
                 (double)_regulatorRoll._lastRegulatorTorqueContribution,
                 (double)_regulatorRoll._lastRegulatorRateDampingCoef,
                 (double)_regulatorRoll._lastRegulatorFFTorqueDemand,
-                (double)_regulatorRoll._lastRegulatorTorqueDemand,
+                (double)_regulatorRoll._lastOutputTotalTorqueDemand,
                 (double)_regulatorRoll._lastRegulatorIntegralValue,
                 (double)_regulatorRoll._lastRegulatorIntegralValueMax
                 );
 
-    AP::logger().Write("BREY", "TimeUS,q,t,es,E,cP,cI,cD,P,I,D,rA,rT,cRD,ffT,rT,vI,mI",
+    AP::logger().Write("BREY", "TimeUS,q,t,es,E,cP,cI,cD,P,I,D,rA,rT,cRD,ffT,rtT,vI,mI",
                 "S----------------", // units: seconds, any
                 "F0000000000000000", // mult: 1e-6, 1e-2
                 "Qffffffffffffffff", // format: uint64_t, float
@@ -1083,7 +1115,7 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
                 (double)_regulatorYaw._lastRegulatorTorqueContribution,
                 (double)_regulatorYaw._lastRegulatorRateDampingCoef,
                 (double)_regulatorYaw._lastRegulatorFFTorqueDemand,
-                (double)_regulatorYaw._lastRegulatorTorqueDemand,
+                (double)_regulatorYaw._lastOutputTotalTorqueDemand,
                 (double)_regulatorYaw._lastRegulatorIntegralValue,
                 (double)_regulatorYaw._lastRegulatorIntegralValueMax
                 );
@@ -1184,6 +1216,28 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
 
     //calculate effector outputs
 
+    //calculate effector mixing
+
+        float surfaceToMotorMixingRatio = 0.0f; //smaller = motors, larger = surfaces.
+
+        surfaceToMotorMixingRatio = getRangeRatio(dynamicPressure, EffectorMixingDynamicPressureBottom, EffectorMixingDynamicPressureTop);
+
+        float pitchMomentForSurfaces = 0.0f;
+        float rollMomentForSurfaces = 0.0f;
+        float pitchMomentForMotors = 0.0f;
+        float rollMomentForMotors = 0.0f;
+
+        if(surfaceToMotorMixingRatio < 0.0f) surfaceToMotorMixingRatio = 0.0f;
+        if(surfaceToMotorMixingRatio > 1.0f) surfaceToMotorMixingRatio = 1.0f;
+
+        pitchMomentForSurfaces = desiredMomentY * (surfaceToMotorMixingRatio);
+        rollMomentForSurfaces = desiredMomentX * (surfaceToMotorMixingRatio);
+
+        pitchMomentForMotors = desiredMomentY * (1.0f - surfaceToMotorMixingRatio);
+        rollMomentForMotors = desiredMomentX * (1.0f - surfaceToMotorMixingRatio);
+
+
+
         //control surfaces: Elevons.
         //Trailing edge up is positive.
         float elevon1Angle = 0.0f; //there is likely a better metric...ratio, or effort, or contribution...
@@ -1210,12 +1264,16 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
             protectedElevonDeflectionToForceGain = AIRCRAFT_PROPERTIES_ELEVON_AREA_M2 * elevonControlMinimumDynamicPressure * elevonCoefLiftPerDeflection;
         }
 
+        //TODO: need to protect agains a div/0 here.
+        if(protectedElevonDeflectionToForceGain < 0.01) protectedElevonDeflectionToForceGain = 0.01;
+
+
         //Calculate the moment-to-deflection gain so we can calculate the deflection (later).  We use the force and distance.
         pitchMomentToElevonSurfaceDeflectionGain = 1.0f / (protectedElevonDeflectionToForceGain * distanceXFromCGElevonsAbsv); //the (+) is to convert from trailing edge up = positive to force -down = positive. with the positve arm...
         rollMomentToElevonSurfaceDeflectionGainPos = 1.0f / (protectedElevonDeflectionToForceGain * distanceYFromCGElevonsAbsv); //the (+) is to convert from trailing edge up = positive to force -down = positive. with the positve arm...to positive roll.
 
         //Calculate desired angle for Elevon # 1 (Left).  The 0.5f is because we (implicitly) have two elevons to split the moments.
-        elevon1Angle = 0.5f*pitchMomentToElevonSurfaceDeflectionGain * desiredMomentY - 0.5f*rollMomentToElevonSurfaceDeflectionGainPos * desiredMomentX;
+        elevon1Angle = 0.5f*pitchMomentToElevonSurfaceDeflectionGain * pitchMomentForSurfaces - 0.5f*rollMomentToElevonSurfaceDeflectionGainPos * rollMomentForSurfaces;
         //Limit elevon deflection to hardware limits.
         if(elevon1Angle > AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MAX_ANGLE)
         {
@@ -1225,7 +1283,7 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
             elevon1Angle = AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MIN_ANGLE;
         }
         //Calculate desired angle for Elevon # 2 (Right) The 0.5f is because we (implicitly) have two elevons to split the moments.
-        elevon2Angle = 0.5f*pitchMomentToElevonSurfaceDeflectionGain * desiredMomentY + 0.5f*rollMomentToElevonSurfaceDeflectionGainPos * desiredMomentX;
+        elevon2Angle = 0.5f*pitchMomentToElevonSurfaceDeflectionGain * pitchMomentForSurfaces + 0.5f*rollMomentToElevonSurfaceDeflectionGainPos * rollMomentForSurfaces;
         //Limit elevon deflection to hardware limits.
         if(elevon2Angle > AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MAX_ANGLE)
         {
@@ -1250,16 +1308,16 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         float estimatedAttainedElevonMomentY = elevon1Angle * elevonDeflectionToForceGain * 1.0f * distanceXFromCGElevonsAbsv  +   elevon2Angle * elevonDeflectionToForceGain * 1.0f * distanceXFromCGElevonsAbsv;
         float estimatedAttainedElevonMomentX = elevon1Angle * elevonDeflectionToForceGain * -1.0f * distanceYFromCGElevonsAbsv +   elevon2Angle * elevonDeflectionToForceGain * 1.0f * distanceYFromCGElevonsAbsv;
         
-        float residualElevonMomentX = desiredMomentX - estimatedAttainedElevonMomentX;
-        float residualElevonMomentY = desiredMomentY - estimatedAttainedElevonMomentY;
+        float residualElevonMomentX = rollMomentForSurfaces - estimatedAttainedElevonMomentX;
+        float residualElevonMomentY = pitchMomentForSurfaces - estimatedAttainedElevonMomentY;
 
         effectors.elevon1Angle = elevon1Angle;
         effectors.elevon2Angle = elevon2Angle;
 
-        AP::logger().Write("BELE", "TimeUS,q,rMom,pMom,elvDeflFrceGn,e1Cmd,e2Cmd,resX,resY,mM",
-            "S---------", // units: seconds, rad/sec
-            "FB00A00000", // mult: 1e-6, 1e-2
-            "Qfffffffff", // format: uint64_t, float
+        AP::logger().Write("BELE", "TimeUS,q,rMom,pMom,elvDeflFrceGn,e1Cmd,e2Cmd,resX,resY,mM,mR",
+            "S----------", // units: seconds, rad/sec
+            "FB00A000000", // mult: 1e-6, 1e-2
+            "Qffffffffff", // format: uint64_t, float
             AP_HAL::micros64(),
             (double)dynamicPressure,
             (double)desiredMomentX,
@@ -1269,13 +1327,21 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
             (double)elevon2Angle,
             (double)residualElevonMomentX,
             (double)residualElevonMomentY,
-            (double)estimatedNetMotorTorqueToCancelOut
+            (double)estimatedNetMotorTorqueToCancelOut,
+            (double)surfaceToMotorMixingRatio
             );
 
-        //TEST:  //NOT TESTED YET!...tested some....
+        //TEST:  //NOT TESTED YET!...tested some....need to improve.
         //Have the motors do what the controls surfaces cannot.
-        desiredMomentX = residualElevonMomentX; 
-        desiredMomentY = residualElevonMomentY; 
+        //desiredMomentX = residualElevonMomentX * ElevonResidualOverflowRatio;  //TODO: This is a test.
+        //desiredMomentY = residualElevonMomentY * ElevonResidualOverflowRatio; 
+        pitchMomentForMotors += residualElevonMomentY * ElevonResidualOverflowRatio;  //add the residual from the surfaces to the motors!
+        rollMomentForMotors += residualElevonMomentX * ElevonResidualOverflowRatio;
+
+        desiredMomentX = rollMomentForMotors; //so we don't need to change the code below.
+        desiredMomentY = pitchMomentForMotors;
+
+
 
         //Now calculate motors and tilts!
         //Calculate forward/aft motor thurst(force) distribution from the total body Z force desired and the desired pitching moment.

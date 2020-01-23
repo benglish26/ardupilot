@@ -163,8 +163,9 @@ struct AircraftProperties
 class BTOL_Controller {
 public:
     //https://www.geeksforgeeks.org/when-do-we-use-initializer-list-in-c/
-    BTOL_Controller(AP_AHRS &ahrs, const AP_Vehicle::FixedWing &parms): 
+    BTOL_Controller(AP_AHRS &ahrs, AP_Baro &baro, const AP_Vehicle::FixedWing &parms): 
     _ahrs(ahrs), 
+    _baro(baro),
     aparm(parms),
     //_pid_rate_roll(AC_PID_ROLL_RATE_P, AC_PID_ROLL_RATE_I, AC_PID_ROLL_RATE_D, AC_PID_ROLL_RATE_IMAX, AC_PID_ROLL_RATE_FF, AC_PID_ROLL_RATE_FILTER_T, AC_PID_ROLL_RATE_FILTER_E, AC_PID_ROLL_RATE_FILTER_D, PID_400HZ_DT),
     //_pid_rate_pitch(AC_PID_PITCH_RATE_P, AC_PID_PITCH_RATE_I, AC_PID_PITCH_RATE_D, AC_PID_PITCH_RATE_IMAX, AC_PID_PITCH_RATE_FF, AC_PID_PITCH_RATE_FILTER_T, AC_PID_PITCH_RATE_FILTER_E, AC_PID_PITCH_RATE_FILTER_D, PID_400HZ_DT),
@@ -319,6 +320,7 @@ public:
 
 private:
     AP_AHRS &_ahrs;
+    AP_Baro &_baro;
     const AP_Vehicle::FixedWing &aparm;
     //AP_AutoTune::ATGains gains;
     AP_Float rollRateCommandGain;
@@ -388,6 +390,9 @@ private:
     AP_Float YawRegulatorItermMaxForwardFlight;
 
     AP_Float BatteryVoltageCompensationCoeficent;
+    AP_Float EffectorMixingDynamicPressureTop;
+    AP_Float EffectorMixingDynamicPressureBottom;
+    AP_Float ElevonResidualOverflowRatio;
 
 
 

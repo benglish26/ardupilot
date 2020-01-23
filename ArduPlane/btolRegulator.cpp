@@ -64,7 +64,7 @@ float BTOL_Regulator::getTorqueDemand(float targetRate, float measuredRate, floa
 
     if(_integratorValue > integratorMax) _integratorValue = integratorMax;
     if(_integratorValue < -integratorMax) _integratorValue = -integratorMax;
-    _integratorValue = 0.0f;//constrain_float(integratorValue, -integratorMax, integratorMax);
+    //_integratorValue = 0.0f;//constrain_float(integratorValue, -integratorMax, integratorMax);
 
 
     float proportionalContribution = PCoef * error;
@@ -84,13 +84,13 @@ float BTOL_Regulator::getTorqueDemand(float targetRate, float measuredRate, floa
     _lastRegulatorIcoef = ICoef;
     _lastRegulatorDcoef = DCoef;
     _lastRegulatorP = proportionalContribution;
-    _lastRegulatorD = derivitiveContribution;
     _lastRegulatorI = integralContribution;
+    _lastRegulatorD = derivitiveContribution;
     _lastRegulatorAccelerationContribution = regulatorAccelerationContribution;
     _lastRegulatorTorqueContribution = regulatorTorqueContribution;
     _lastRegulatorRateDampingCoef = rateDampingCoef;
     _lastRegulatorFFTorqueDemand = feedForwardTorque;
-    _lastRegulatorTorqueDemand = torqueDemand;
+    _lastOutputTotalTorqueDemand = torqueDemand;
     _lastRegulatorIntegralValue = _integratorValue;
     _lastRegulatorIntegralValueMax = integratorMax;
 
