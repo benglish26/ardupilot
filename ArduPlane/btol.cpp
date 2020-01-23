@@ -1021,14 +1021,24 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         desiredMomentX = rollRateRegulator(targetRollRate, _ahrs.get_gyro().x, dynamicPressure, sqrtf(dynamicPressure), dt);
 
 //Log things such as vertical rate, attitude, ext.
-/*
-    AP::logger().Write("BEST", "TimeUS,q",
-                "S----", // units: seconds, any
-                "F0000", // mult: 1e-6, 1e-2
-                "Qffff", // format: uint64_t, float
+
+AP::logger().Write("BARO", "TimeUS,est_q,bVS,bALT",
+                "S---", // units: seconds, any
+                "F000", // mult: 1e-6, 1e-2
+                "Qfff", // format: uint64_t, float
                 AP_HAL::micros64(),
                 (double)dynamicPressure,
-                (double)_ahrs.get_airspeed(),
+                //(double)_ahrs.get_airspeed(),
+                (double)_baro.get_climb_rate(),
+                (double)_baro.get_altitude()
+                );
+
+AP::logger().Write("BEST", "TimeUS,q,Rx,Ry,Rz,P,R,Y,Yre,AOA,AOS,Vgx,Vgy,init",
+                "S-------------", // units: seconds, any
+                "F0000000000000", // mult: 1e-6, 1e-2
+                "Qfffffffffffff", // format: uint64_t, float
+                AP_HAL::micros64(),
+                (double)dynamicPressure,
                 (double)_ahrs.get_gyro().x,
                 (double)_ahrs.get_gyro().y,
                 (double)_ahrs.get_gyro().z,
@@ -1041,11 +1051,8 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
                 //(double)_ahrs.get_airspeed()
                 (double)_ahrs.groundspeed_vector().x,
                 (double)_ahrs.groundspeed_vector().y,
-                (double)_ahrs.initialised(),
-                (double)_ahrs.get_accel_ef_blended
-
-                
-                );*/
+                (double)_ahrs.initialised()
+                );
        
 
     AP::logger().Write("BREP", "TimeUS,q,t,es,E,cP,cI,cD,P,I,D,rA,rT,cRD,ffT,rtT,vI,mI",

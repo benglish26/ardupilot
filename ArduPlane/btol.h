@@ -321,6 +321,7 @@ public:
 private:
     AP_AHRS &_ahrs;
     AP_Baro &_baro;
+   // AP_InertialSensor 
     const AP_Vehicle::FixedWing &aparm;
     //AP_AutoTune::ATGains gains;
     AP_Float rollRateCommandGain;
