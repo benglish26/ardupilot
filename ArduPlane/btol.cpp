@@ -35,6 +35,7 @@ extern const AP_HAL::HAL& hal;
 #define RC_CHANNEL_NUMBER_FOR_YAW_STICK 3
 #define RC_CHANNEL_NUMBER_FOR_THROTTLE_STICK 2
 #define RC_CHANNEL_NUMBER_FOR_LEFT_SLIDER_STICK 6
+#define RC_CHANNEL_NUMBER_FOR_RIGHT_SLIDER_STICK CH_8  //7
 #define RC_CHANNEL_NUMBER_FOR_ARM_SWITCH CH_6  //2000us = forward, 1000us = aft.
 #define RC_CHANNEL_NUMBER_FOR_MODE_SWITCH CH_5  //2000us = forward, 1000us = aft.
 
@@ -229,6 +230,7 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
     AP_GROUPINFO("MixTopQ",        59, BTOL_Controller, EffectorMixingDynamicPressureTop,        200),
     AP_GROUPINFO("MixBotQ",        60, BTOL_Controller, EffectorMixingDynamicPressureBottom,        50),
     AP_GROUPINFO("EleOvrflRAT",        61, BTOL_Controller, ElevonResidualOverflowRatio,        1.0),
+    AP_GROUPINFO("AttiStbTopQ",        62, BTOL_Controller, topOfAttitudeFeedbackDynamicPressure,        100),
 
 
 //Make sure that the number is progressed!
@@ -256,6 +258,7 @@ void Plane::update_btol() {  //50Hz
    float rcCommandInputYawStickRight = 0;
    float rcCommandInputThrottleStickForward = 0;
    float rcCommandInputLeftSliderStickForward = 0;
+   float rcCommandInputRightSliderStickForward = 0;
    //float rcCommandInputArmSwitch = 0;
     
     //need protections which set these to neutral values if the signal isn't present. TODO
@@ -264,6 +267,29 @@ void Plane::update_btol() {  //50Hz
     rcCommandInputYawStickRight = constrain_float( ((float)hal.rcin->read(RC_CHANNEL_NUMBER_FOR_YAW_STICK) - RC_CHANNEL_INPUT_CENTER_VALUE)/RC_CHANNEL_INPUT_HALF_RANGE, -1.0, 1.0); 
     rcCommandInputThrottleStickForward = constrain_float( ((float)hal.rcin->read(RC_CHANNEL_NUMBER_FOR_THROTTLE_STICK) - RC_CHANNEL_INPUT_CENTER_VALUE)/RC_CHANNEL_INPUT_HALF_RANGE, -1.0, 1.0); 
     rcCommandInputLeftSliderStickForward = constrain_float( ((float)hal.rcin->read(RC_CHANNEL_NUMBER_FOR_LEFT_SLIDER_STICK) - RC_CHANNEL_INPUT_CENTER_VALUE)/RC_CHANNEL_INPUT_HALF_RANGE, -1.0, 1.0); 
+    rcCommandInputRightSliderStickForward = constrain_float( ((float)hal.rcin->read(RC_CHANNEL_NUMBER_FOR_RIGHT_SLIDER_STICK) - RC_CHANNEL_INPUT_CENTER_VALUE)/RC_CHANNEL_INPUT_HALF_RANGE, -1.0, 1.0); 
+
+
+    AP::logger().Write("B_RC", "TimeUS,dt_ms,P,R,Y,T,LS,RS",
+                   "SS------", // units: seconds, rad/sec
+                   "F0000000", // mult: 1e-6, 1e-2
+                   "QIffffff", // format: uint64_t, float
+                   AP_HAL::micros64(),
+                   dt_ms,
+                   (double)rcCommandInputPitchStickAft,
+                   (double)rcCommandInputRollStickRight,
+                   (double)rcCommandInputYawStickRight,
+                   (double)rcCommandInputThrottleStickForward,
+                   (double)rcCommandInputLeftSliderStickForward,
+                   (double)rcCommandInputRightSliderStickForward
+                   );
+
+
+    float targetHoverPitchAttitude = 0.0f;
+    #define HOVER_TARGET_PITCH_NOMINAL_ATTITUDE 0.0872665f //5 deg
+    #define HOVER_TARGET_PITCH_NOMINAL_ATTITUDE_COMMANDABLE_DELTA 0.0872665f //5 deg
+    targetHoverPitchAttitude = HOVER_TARGET_PITCH_NOMINAL_ATTITUDE + rcCommandInputRightSliderStickForward * HOVER_TARGET_PITCH_NOMINAL_ATTITUDE_COMMANDABLE_DELTA;
+    g2.btolController.setCommandedHoverPitchAttitudeBaseline(targetHoverPitchAttitude);//rad 
 
     #define MAX_BODY_AXIS_POWERED_LIFT_ACCELERATION_COMMAND_MS 20.0
     #define MAX_BODY_AXIS_POWERED_ACCELERATION_COMMAND_MS 15.0
@@ -271,8 +297,6 @@ void Plane::update_btol() {  //50Hz
     float desiredForwardAccelerationComponent = (rcCommandInputLeftSliderStickForward) * MAX_BODY_AXIS_POWERED_ACCELERATION_COMMAND_MS;
     //need protections
     
-    //no longer declared in Plane.h....trying to mimic the soaring controller.
-
     g2.btolController.setDesiredAccelerationBodyZ(desiredUpAccelerationComponent * -1.0);  //the -1.0 converts this into the +Z = down frame.  this (of course) needs work.
     g2.btolController.setDesiredAccelerationBodyX(desiredForwardAccelerationComponent);  //this (of course) needs work.
 
@@ -296,6 +320,7 @@ void Plane::update_btol() {  //50Hz
     g2.btolController.setDesiredPassthroughAngularAccelerationPitch(rcCommandInputPitchStickAft * g2.btolController.getPitchPassthroughAccelerationCommandGain());
     g2.btolController.setDesiredPassthroughAngularAccelerationRoll(rcCommandInputRollStickRight * g2.btolController.getRollPassthroughAccelerationCommandGain());
     g2.btolController.setDesiredPassthroughAngularAccelerationYaw(rcCommandInputYawStickRight * g2.btolController.getYawPassthroughAccelerationCommandGain()); //TODO: these are temporary gain placeholders.
+
 
 
     //Todo: this should be a state machine.  This is a bit hacky, setting it every cycle.
@@ -348,15 +373,17 @@ void Plane::update_btol() {  //50Hz
 
 //https://github.com/ArduPilot/ardupilot/blob/master/libraries/AP_Logger/LogStructure.h#L42
 //https://ardupilot.org/dev/docs/code-overview-adding-a-new-log-message.html
-    AP::logger().Write("BCMD", "TimeUS,dt_ms,PitchRate,RollRate,YawRate,modeSw,mode,arm",
-                   "SSEEE---", // units: seconds, rad/sec
-                   "F0000000", // mult: 1e-6, 1e-2
-                   "QIfffhhh", // format: uint64_t, float
+    AP::logger().Write("BCMD", "TimeUS,dt_ms,PitchR,RollR,YawR,Tilt,Accel,modeSw,mode,arm",
+                   "SSEEE-----", // units: seconds, rad/sec
+                   "F000000000", // mult: 1e-6, 1e-2
+                   "QIfffffhhh", // format: uint64_t, float
                    AP_HAL::micros64(),
                    dt_ms,
                    (double)rcCommandInputPitchStickAft * g2.btolController.getPitchRateCommandGain(),
                    (double)rcCommandInputRollStickRight * g2.btolController.getRollRateCommandGain(),
                    (double)rcCommandInputYawStickRight * g2.btolController.getYawRateCommandGain(),
+                   (double)mtv_direct_command_tilt_angle,
+                   (double)mtv_direct_command_tilt_acceleration,
                    modeSwitchValue,
                    g2.btolController.getRegulatorModeState(),
                    g2.btolController.getArmedState()
@@ -746,6 +773,11 @@ void BTOL_Controller::setCommandedYawRate(float yawRate)
     command.targetYawRate = yawRate;
 }
 
+void BTOL_Controller::setCommandedHoverPitchAttitudeBaseline(float nominalHoverPitchAttitude)
+{
+    command.targetHoverNominalPitchAttitude = nominalHoverPitchAttitude;
+}
+
 // get_filt_alpha - calculate a filter alpha
 float BTOL_Controller::getFilterAlpha(float filt_hz, float dt)
 {
@@ -848,7 +880,7 @@ float BTOL_Controller::getAugmentedStabilityRatioWithinAngleRange(float angleRad
 
 //TODO: Look up table function,
 
-float BTOL_Controller::getRangeRatio(float value, float min, float max)
+float BTOL_Controller::getRangeRatio(float value, float min, float max)  //TODO: Allow max to be less than min...this would allow us to invert the output.
 {
     float ratio = 0.0;
     if(max < min)
@@ -961,14 +993,6 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
     if(state.regulatorMode == CONTROLLER_STATE_REGULATOR_MODE_ATTITUDE)
     {
       //  Attitude Command ...will be useful later...need to figure out how to get both!
-      //  float attitudeErrorRoll = command.targetRollAttitude - _ahrs.get_roll();
-      //  float attitudeErrorPitch = command.targetPitchAttitude - _ahrs.get_pitch();
-
-      //  float targetRollRate = attitudeErrorRoll * rollAttitudeErrorToRollRateGain.get(); //this could be an issue, also.  TODO
-      //  float targetPitchRate = attitudeErrorPitch * pitchAttitudeErrorToPitchRateGain.get(); //not sure if this is the right way to do this!
-
-
-       // float BTOL_Controller::getRangeRatio(float value, float min, float max);
 
         float dynamicPressureRatio = getRangeRatio(dynamicPressure, 0.0f, getTopOfTransitionDynamicPressure());
         #define FORWARD_FLIGHT_ROLL_INNER_ANGLE 0.698132f //40 degrees
@@ -986,17 +1010,20 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         targetRollRate = command.targetRollRate + getAugmentedStabilityRatioWithinAngleRange(_ahrs.get_roll(), innerStabilizationAngleRoll, outerStabilizationAngleRoll) * getRollRateCommandGain();
         targetPitchRate = command.targetPitchRate + getAugmentedStabilityRatioWithinAngleRange(_ahrs.get_pitch(), innerStabilizationAnglePitch, outerStabilizationAnglePitch) * getPitchRateCommandGain();
         targetYawRate = command.targetYawRate; //can add auto coordination here.... 
-        //float lateralAcceleration = _ahrs.get_accel().y; //lateral Acceleration.
-
-        //could try summing the demanded rates and the attitude stability instead of this explicit values?
-    //    float targetRollRate = command.targetRollRate + getAugmentedStabilityRatioWithinAngleRange(_ahrs.get_roll(), 0.0f, 1.0f) * getRollRateCommandGain();
-    //    float targetPitchRate = command.targetPitchRate + getAugmentedStabilityRatioWithinAngleRange(_ahrs.get_pitch(), 0.0f, 1.0f) * getPitchRateCommandGain();
-
-
-        //get_rate_roll_pid()
-        //desiredMomentX = get_rate_roll_pid().update_all(targetRollRate,_ahrs.get_gyro().x, false) * aircraftProperties.momentOfInertiaRoll;
-        //desiredMomentY = get_rate_pitch_pid().update_all(targetPitchRate,_ahrs.get_gyro().y, false) * aircraftProperties.momentOfInertiaPitch;
-       // targetYawRate = command.targetYawRate;
+      
+        //need regulator gains.
+        //Blend in attitude control or fight the roll rate target?  
+        float rollAttitudeFeedbackRatio = 1.0f - getRangeRatio(dynamicPressure, 0.0f, getTopOfAttitudeFeedbackDynamicPressure());  //this should be scaled with dynamic pressure, not capped...but we'll start here.
+        float hoverRollAttitudeSetpoint = 0.0f;
+        #define MAX_ROLL_ATTITUDE_HOVER 1.0f //57 degrees
+        targetRollRate = command.targetRollRate + rollAttitudeFeedbackRatio * ((hoverRollAttitudeSetpoint - _ahrs.get_roll())/MAX_ROLL_ATTITUDE_HOVER) * getRollRateCommandGain();
+        
+        float pitchAttitudeFeedbackRatio = 1.0f - getRangeRatio(dynamicPressure, 0.0f, getTopOfAttitudeFeedbackDynamicPressure());  //this should be scaled with dynamic pressure, not capped...but we'll start here.
+        float hoverPitchAttitudeSetpoint = 0.0872665f; //5 degrees
+        hoverPitchAttitudeSetpoint = command.targetHoverNominalPitchAttitude; //so we can set the deck angle with a slider, or other input, etc....
+        #define MAX_PITCH_ATTITUDE_HOVER 1.0f //57 degrees
+        targetPitchRate = command.targetPitchRate + pitchAttitudeFeedbackRatio * ((hoverPitchAttitudeSetpoint - _ahrs.get_pitch())/MAX_PITCH_ATTITUDE_HOVER) * getPitchRateCommandGain();
+        
 
     }
 

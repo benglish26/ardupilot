@@ -115,6 +115,7 @@ struct CommandInput
     float targetRollRate;
     float targetYawRate;
     float targetHeading;
+    float targetHoverNominalPitchAttitude;
 
     float targetAccelerationZ;
     float targetAccelerationX;
@@ -191,6 +192,7 @@ public:
         command.passthroughAngularAccelerationRoll = 0.0f;
         command.passthroughAngularAccelerationPitch = 0.0f;
         command.passthroughAngularAccelerationYaw = 0.0f;
+        command.targetHoverNominalPitchAttitude = 0.0f;
 
         aircraftProperties.totalMass = getAircraftMass();//1.0;  //approximaton.  Make tuning parameter and figure out actual value.  Don't use this!
         aircraftProperties.momentOfInertiaPitch = 0.01492262208f;  //gross approximaton.  Make tuning parameter figure out actual value.
@@ -262,6 +264,7 @@ public:
     void setCommandedRollRate(float rollRate); //Rad/sec
     void setCommandedPitchRate(float pitchRate); //Rad/sec
     void setCommandedYawRate(float yawRate); //Rad/sec
+    void setCommandedHoverPitchAttitudeBaseline(float nominalHoverPitchAttitude); //radians
     float getFilterAlpha(float filt_hz, float dt);
 
     float getEstimatedDynamicPressure(void);
@@ -307,6 +310,7 @@ public:
     AP_Float &getMotor3MaxThrust(void) { return motor3MaxThrust; } 
 
     AP_Float &getTopOfTransitionDynamicPressure(void) { return topOfTransitionDynamicPressure; } 
+    AP_Float &getTopOfAttitudeFeedbackDynamicPressure(void) { return topOfAttitudeFeedbackDynamicPressure; } 
     AP_Float &getVerticalAccelerationThresholdToConsiderAircraftInHover(void) { return verticalAccelerationThresholdToConsiderAircraftInHover; } 
     AP_Float &getCenterOfMassLocationX(void) { return centerOfMassLocationX; } 
     AP_Float &getAircraftMass(void) { return aircraftMassInKg; } 
@@ -355,7 +359,6 @@ private:
     AP_Float lowpassFilterCuttofFrequencyElevonAngle; //Hz
     AP_Float lowpassFilterCuttofFrequencyTiltAngle; //Hz
  
-
     AP_Float aeroDampingVsTrueAirspeedCoefRoll; //Torque
     AP_Float aeroDampingVsTrueAirspeedCoefPitch; //Torque
     AP_Float aeroDampingVsTrueAirspeedCoefYaw; //Torque
@@ -395,12 +398,11 @@ private:
     AP_Float EffectorMixingDynamicPressureBottom;
     AP_Float ElevonResidualOverflowRatio;
 
-
+    AP_Float topOfAttitudeFeedbackDynamicPressure;
 
     float pitchRateError;
     float rollRateError;
     float yawRateError;
-
 
     BTOL_Regulator _regulatorPitch;
     BTOL_Regulator _regulatorRoll;
