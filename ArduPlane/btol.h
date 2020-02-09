@@ -93,9 +93,9 @@ struct ADHRS_Estimate
     float rateRoll;
     float ratePitch;
     float rateYaw;
-    float bodyAccelerationX;
-    float bodyAccelerationY;
-    float bodyAccelerationZ;
+    float bodyProperAccelerationX;
+    float bodyProperAccelerationY;
+    float bodyProperAccelerationZ;
     float dynamicPressure;
 };
 
@@ -252,9 +252,9 @@ public:
 
         estimate.attitudePitch = 0.0f;
         estimate.attitudeRoll = 0.0f;
-        estimate.bodyAccelerationX = 0.0f;
-        estimate.bodyAccelerationY = 0.0f;
-        estimate.bodyAccelerationZ = 0.0f;
+        estimate.bodyProperAccelerationX = 0.0f;
+        estimate.bodyProperAccelerationY = 0.0f;
+        estimate.bodyProperAccelerationZ = 0.0f;
         estimate.heading = 0.0f;
         estimate.ratePitch = 0.0f;
         estimate.rateRoll = 0.0f;

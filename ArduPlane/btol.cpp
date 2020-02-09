@@ -1010,22 +1010,24 @@ void BTOL_Controller::updateAdhrsEstimate(void)
 
     const AP_InertialSensor &_ins = AP::ins();
     
-    Vector3f initAccVec;
-    initAccVec = _ins.get_accel(); //I think this is wrong.  Needs an update function?  Should likely subscribe in the normal way...same as done with baro!
+    Vector3f rawInitAccVec;
+    rawInitAccVec = _ins.get_accel(); //I think this is wrong.  Needs an update function?  Should likely subscribe in the normal way...same as done with baro!
+    //how are these acceleratons defined?  
+    
 
 
     estimate.attitudePitch = _ahrs.get_pitch();
     estimate.attitudeRoll = _ahrs.get_roll();
-    estimate.bodyAccelerationX = initAccVec.x;
-    estimate.bodyAccelerationY = initAccVec.y;
-    estimate.bodyAccelerationZ = initAccVec.z;
+    estimate.bodyProperAccelerationX = rawInitAccVec.x;
+    estimate.bodyProperAccelerationY = rawInitAccVec.y;
+    estimate.bodyProperAccelerationZ = rawInitAccVec.z; //will read -9.81 due to the proper acceleration due to the force of the ground pushing it.
     estimate.heading = _ahrs.get_yaw();
     estimate.ratePitch = _ahrs.get_gyro().y;
     estimate.rateRoll = _ahrs.get_gyro().x;
     estimate.rateYaw = _ahrs.get_gyro().z;
     estimate.dynamicPressure = 0.0f;
 
-    initAccVec = initAccVec * 1.0f;  //to make compile warning go away.  (unused)
+    rawInitAccVec = rawInitAccVec * 1.0f;  //to make compile warning go away.  (unused)
 
 
 
@@ -1041,9 +1043,9 @@ void BTOL_Controller::updateAdhrsEstimate(void)
                 (double)estimate.attitudePitch,
                 (double)estimate.attitudeRoll,
                 (double)estimate.heading,
-                (double)estimate.bodyAccelerationX,
-                (double)estimate.bodyAccelerationY,
-                (double)estimate.bodyAccelerationZ,
+                (double)estimate.bodyProperAccelerationX,
+                (double)estimate.bodyProperAccelerationY,
+                (double)estimate.bodyProperAccelerationZ,
                 (double)_ahrs.get_yaw_rate_earth(),
                 (double)_ahrs.getAOA(),
                 (double)_ahrs.getSSA(),
@@ -1131,7 +1133,7 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         float rollAttitudeToCompensateForLateralAcceleration = 0.0f;
 
         //calculate the automatic roll trim.
-        rollAttitudeToCompensateForLateralAcceleration = asinf(estimate.bodyAccelerationY / 9.81);
+        rollAttitudeToCompensateForLateralAcceleration = -1.0f * asinf(estimate.bodyProperAccelerationY / 9.81);  //we could use the zaccleration here, but we know what it will be!, ALthough, in hover, that's a much better way to estimate thrust!
 
         //scale output for so that it only occurs at low dynamic pressures?
         float automaticHoverRollTrimStrengthRatio = 1.0f - getRangeRatio(dynamicPressure, 0.0f, automaticHoverRollTrimDynamicPressureMax);
@@ -1154,7 +1156,7 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         AP_HAL::micros64(),
         (double)dynamicPressure,
         (double)automaticHoverRollTrimStrengthRatio,
-        (double)estimate.bodyAccelerationY,
+        (double)estimate.bodyProperAccelerationY,
         (double)rollAttitudeToCompensateForLateralAcceleration,
         (double)hoverRollAttitudeSetpoint
         );

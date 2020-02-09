@@ -1255,7 +1255,7 @@ ParametersG2::ParametersG2(void) :
     ,soaring_controller(plane.ahrs, plane.TECS_controller, plane.aparm)
 #endif
 #if BTOL_ENABLED == ENABLED
-    ,btolController(plane.ahrs, plane.barometer,  plane.aparm) 
+    ,btolController(plane.ahrs, plane.barometer,  plane.aparm)
 #endif
 {
     AP_Param::setup_object_defaults(this, var_info);
