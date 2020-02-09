@@ -232,6 +232,10 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
     AP_GROUPINFO("EleOvrflRAT",        61, BTOL_Controller, ElevonResidualOverflowRatio,        1.0),
     AP_GROUPINFO("AttiStbTopQ",        62, BTOL_Controller, topOfAttitudeFeedbackDynamicPressure,        100),
 
+    //AP_GROUPINFO("H_RTrimMaxA",        63, BTOL_Controller, automaticHoverRollTrimMaximumAngle,        0.174533),
+    AP_GROUPINFO("H_RTrimTopQ",        63, BTOL_Controller, automaticHoverRollTrimDynamicPressureMax,        20),
+
+    //I think there may be an issue with more than 64 parameters ie: if there are 63, that's the max.  No 64!  Yep.  It's an issue!
 
 //Make sure that the number is progressed!
 	AP_GROUPEND
@@ -964,8 +968,115 @@ float BTOL_Controller::pitchRateRegulator(float targetRate, float measuredRate, 
     return torqueDemand;
 }
 
+void BTOL_Controller::updateSensorData(void)
+{
+
+    //const AP_InertialSensor &_ins = AP::ins();
+    
+    //Vector3f initAccVec = _ins.get_accel();
+
+
+    
+    //AHRS defined in the BTOL Class.
+    //const  AP_InertialNav_NavEKF &_inertial_nav = AP::  inertial_nav.get_velocity().z;
+    
+    //_ahrs.get_roll();
+
+    //consider using delta-velocity ?  Does 
+    //From throw function.
+     //       const float velocity = inertial_nav.get_velocity().length();
+       // const float velocity_z = inertial_nav.get_velocity().z;
+       // const float accel = copter.ins.get_accel().length();
+       // const float ef_accel_z = ahrs.get_accel_ef().z;
+
+
+    //accels
+    //gyros
+    //attitude
+    //heaing
+    //baro
+    //validity
+        //      by using get_delta_velocity() instead of get_accel() the
+        //      accel value is sampled over the right time delta for
+         //     each sensor, which prevents an aliasing effect.  Does this take into acount gravity?  I don't think so!
+    
+
+
+    //log the values
+}
+void BTOL_Controller::updateAdhrsEstimate(void)
+{
+
+
+    const AP_InertialSensor &_ins = AP::ins();
+    
+    Vector3f initAccVec;
+    initAccVec = _ins.get_accel(); //I think this is wrong.  Needs an update function?  Should likely subscribe in the normal way...same as done with baro!
+
+
+    estimate.attitudePitch = _ahrs.get_pitch();
+    estimate.attitudeRoll = _ahrs.get_roll();
+    estimate.bodyAccelerationX = initAccVec.x;
+    estimate.bodyAccelerationY = initAccVec.y;
+    estimate.bodyAccelerationZ = initAccVec.z;
+    estimate.heading = _ahrs.get_yaw();
+    estimate.ratePitch = _ahrs.get_gyro().y;
+    estimate.rateRoll = _ahrs.get_gyro().x;
+    estimate.rateYaw = _ahrs.get_gyro().z;
+    estimate.dynamicPressure = 0.0f;
+
+    initAccVec = initAccVec * 1.0f;  //to make compile warning go away.  (unused)
+
+
+
+    AP::logger().Write("BEST", "TimeUS,q,Rx,Ry,Rz,P,R,Y,Ax,Ay,Az,Yre,AOA,AOS,Vgx,Vgy,init",
+                "S----------------", // units: seconds, any
+                "F0000000000000000", // mult: 1e-6, 1e-2
+                "Qffffffffffffffff", // format: uint64_t, float
+                AP_HAL::micros64(),
+                (double)estimate.dynamicPressure,
+                (double)estimate.rateRoll,
+                (double)estimate.ratePitch,
+                (double)estimate.rateYaw ,
+                (double)estimate.attitudePitch,
+                (double)estimate.attitudeRoll,
+                (double)estimate.heading,
+                (double)estimate.bodyAccelerationX,
+                (double)estimate.bodyAccelerationY,
+                (double)estimate.bodyAccelerationZ,
+                (double)_ahrs.get_yaw_rate_earth(),
+                (double)_ahrs.getAOA(),
+                (double)_ahrs.getSSA(),
+                //(double)_ahrs.get_airspeed()
+                (double)_ahrs.groundspeed_vector().x,
+                (double)_ahrs.groundspeed_vector().y,
+                (double)_ahrs.initialised()
+                );
+
+//_ahrs.get_gyro().z
+
+
+
+//Attiude
+//Rates
+//Accels
+//Airspeed
+//dynamic pressure
+//AOA
+//AOS
+
+}
+
+
+
+
 EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
 {
+
+
+    updateSensorData();
+    updateAdhrsEstimate();
+
 
     float dynamicPressure = getEstimatedDynamicPressure();
     //Add transition ratio.  Consider mutiplying q by 1/100 or acceleration by 10 and radians by 100
@@ -1007,23 +1118,58 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         float innerStabilizationAnglePitch = dynamicPressureRatio * FORWARD_FLIGHT_PITCH_INNER_ANGLE;
         float outerStabilizationAnglePitch = dynamicPressureRatio * (FORWARD_FLIGHT_PITCH_OUTER_ANGLE - HOVER_FLIGHT_PITCH_ANGLE_OUTER) + HOVER_FLIGHT_PITCH_ANGLE_OUTER;
 
-        targetRollRate = command.targetRollRate + getAugmentedStabilityRatioWithinAngleRange(_ahrs.get_roll(), innerStabilizationAngleRoll, outerStabilizationAngleRoll) * getRollRateCommandGain();
-        targetPitchRate = command.targetPitchRate + getAugmentedStabilityRatioWithinAngleRange(_ahrs.get_pitch(), innerStabilizationAnglePitch, outerStabilizationAnglePitch) * getPitchRateCommandGain();
+        targetRollRate = command.targetRollRate + getAugmentedStabilityRatioWithinAngleRange(estimate.attitudeRoll, innerStabilizationAngleRoll, outerStabilizationAngleRoll) * getRollRateCommandGain();
+        targetPitchRate = command.targetPitchRate + getAugmentedStabilityRatioWithinAngleRange(estimate.attitudePitch, innerStabilizationAnglePitch, outerStabilizationAnglePitch) * getPitchRateCommandGain();
         targetYawRate = command.targetYawRate; //can add auto coordination here.... 
       
         //need regulator gains.
         //Blend in attitude control or fight the roll rate target?  
         float rollAttitudeFeedbackRatio = 1.0f - getRangeRatio(dynamicPressure, 0.0f, getTopOfAttitudeFeedbackDynamicPressure());  //this should be scaled with dynamic pressure, not capped...but we'll start here.
         float hoverRollAttitudeSetpoint = 0.0f;
+
+        //add automatic hover roll trim here:
+        float rollAttitudeToCompensateForLateralAcceleration = 0.0f;
+
+        //calculate the automatic roll trim.
+        rollAttitudeToCompensateForLateralAcceleration = asinf(estimate.bodyAccelerationY / 9.81);
+
+        //scale output for so that it only occurs at low dynamic pressures?
+        float automaticHoverRollTrimStrengthRatio = 1.0f - getRangeRatio(dynamicPressure, 0.0f, automaticHoverRollTrimDynamicPressureMax);
+        rollAttitudeToCompensateForLateralAcceleration =  rollAttitudeToCompensateForLateralAcceleration * automaticHoverRollTrimStrengthRatio;
+        //cap output
+        float automaticHoverRollTrimMaximumAngle = 10 * DEG_TO_RAD;
+        if(rollAttitudeToCompensateForLateralAcceleration > automaticHoverRollTrimMaximumAngle) rollAttitudeToCompensateForLateralAcceleration = automaticHoverRollTrimMaximumAngle;
+        if(rollAttitudeToCompensateForLateralAcceleration < -automaticHoverRollTrimMaximumAngle) rollAttitudeToCompensateForLateralAcceleration = -automaticHoverRollTrimMaximumAngle;
+        
+        
+  
+        
+        
+        hoverRollAttitudeSetpoint = hoverRollAttitudeSetpoint + rollAttitudeToCompensateForLateralAcceleration;
+
+      AP::logger().Write("BHRT", "TimeUS,est_q,ratio,Ay,RollAtti,RollSetpoint",
+        "S-----", // units: seconds, any
+        "F00000", // mult: 1e-6, 1e-2
+        "Qfffff", // format: uint64_t, float
+        AP_HAL::micros64(),
+        (double)dynamicPressure,
+        (double)automaticHoverRollTrimStrengthRatio,
+        (double)estimate.bodyAccelerationY,
+        (double)rollAttitudeToCompensateForLateralAcceleration,
+        (double)hoverRollAttitudeSetpoint
+        );
+
+
         #define MAX_ROLL_ATTITUDE_HOVER 1.0f //57 degrees
-        targetRollRate = command.targetRollRate + rollAttitudeFeedbackRatio * ((hoverRollAttitudeSetpoint - _ahrs.get_roll())/MAX_ROLL_ATTITUDE_HOVER) * getRollRateCommandGain();
+        targetRollRate = command.targetRollRate + rollAttitudeFeedbackRatio * ((hoverRollAttitudeSetpoint - estimate.attitudeRoll)/MAX_ROLL_ATTITUDE_HOVER) * getRollRateCommandGain();
         
         float pitchAttitudeFeedbackRatio = 1.0f - getRangeRatio(dynamicPressure, 0.0f, getTopOfAttitudeFeedbackDynamicPressure());  //this should be scaled with dynamic pressure, not capped...but we'll start here.
         float hoverPitchAttitudeSetpoint = 0.0872665f; //5 degrees
         hoverPitchAttitudeSetpoint = command.targetHoverNominalPitchAttitude; //so we can set the deck angle with a slider, or other input, etc....
         #define MAX_PITCH_ATTITUDE_HOVER 1.0f //57 degrees
-        targetPitchRate = command.targetPitchRate + pitchAttitudeFeedbackRatio * ((hoverPitchAttitudeSetpoint - _ahrs.get_pitch())/MAX_PITCH_ATTITUDE_HOVER) * getPitchRateCommandGain();
+        targetPitchRate = command.targetPitchRate + pitchAttitudeFeedbackRatio * ((hoverPitchAttitudeSetpoint - estimate.attitudePitch)/MAX_PITCH_ATTITUDE_HOVER) * getPitchRateCommandGain();
         
+
 
     }
 
@@ -1043,9 +1189,44 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         //acceleration * moment of inertia
     }else{
         //handle non-passthrough regulation.
-        desiredMomentZ = yawRateRegulator(targetYawRate, _ahrs.get_gyro().z, dynamicPressure, sqrtf(dynamicPressure), dt);
-        desiredMomentY = pitchRateRegulator(targetPitchRate, _ahrs.get_gyro().y, dynamicPressure, sqrtf(dynamicPressure), dt);
-        desiredMomentX = rollRateRegulator(targetRollRate, _ahrs.get_gyro().x, dynamicPressure, sqrtf(dynamicPressure), dt);
+        desiredMomentZ = yawRateRegulator(targetYawRate, estimate.rateYaw, dynamicPressure, sqrtf(dynamicPressure), dt);
+        desiredMomentY = pitchRateRegulator(targetPitchRate, estimate.ratePitch, dynamicPressure, sqrtf(dynamicPressure), dt);
+        desiredMomentX = rollRateRegulator(targetRollRate, estimate.rateRoll, dynamicPressure, sqrtf(dynamicPressure), dt);
+
+
+
+
+
+
+
+        //also can get earth frame acceleration vectors:
+        //_ahrs.get_accel_ef();
+
+
+
+        //https://github.com/ArduPilot/ardupilot/blob/master/libraries/AP_AHRS/AP_AHRS_DCM.cpp
+
+        AP_InertialSensor &_ins = AP::ins();
+
+        // Get body frame accel vector
+        Vector3f initAccVec = _ins.get_accel();
+        uint8_t counter = 0;
+
+        _ins.get_accel();
+        _ins.get_gyro();
+
+
+        // the first vector may be invalid as the filter starts up
+        while ((initAccVec.length() < 9.0f || initAccVec.length() > 11) && counter++ < 20) {
+            _ins.wait_for_sample();
+            _ins.update();
+            initAccVec = _ins.get_accel();
+        }
+
+
+
+
+
 
 //Log things such as vertical rate, attitude, ext.
 
@@ -1060,26 +1241,9 @@ AP::logger().Write("BARO", "TimeUS,est_q,bVS,bALT",
                 (double)_baro.get_altitude()
                 );
 
-AP::logger().Write("BEST", "TimeUS,q,Rx,Ry,Rz,P,R,Y,Yre,AOA,AOS,Vgx,Vgy,init",
-                "S-------------", // units: seconds, any
-                "F0000000000000", // mult: 1e-6, 1e-2
-                "Qfffffffffffff", // format: uint64_t, float
-                AP_HAL::micros64(),
-                (double)dynamicPressure,
-                (double)_ahrs.get_gyro().x,
-                (double)_ahrs.get_gyro().y,
-                (double)_ahrs.get_gyro().z,
-                (double)_ahrs.get_pitch(),
-                (double)_ahrs.get_roll(),
-                (double)_ahrs.get_yaw(),
-                (double)_ahrs.get_yaw_rate_earth(),
-                (double)_ahrs.getAOA(),
-                (double)_ahrs.getSSA(),
-                //(double)_ahrs.get_airspeed()
-                (double)_ahrs.groundspeed_vector().x,
-                (double)_ahrs.groundspeed_vector().y,
-                (double)_ahrs.initialised()
-                );
+
+
+    
        
 
     AP::logger().Write("BREP", "TimeUS,q,t,es,E,cP,cI,cD,P,I,D,rA,rT,cRD,ffT,rtT,vI,mI",

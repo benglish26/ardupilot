@@ -85,6 +85,20 @@
 #define AIRCRAFT_PROPERTIES_ELEVON_AREA_M2 0.006847f
 
 
+struct ADHRS_Estimate
+{
+    float attitudeRoll;
+    float attitudePitch;
+    float heading;
+    float rateRoll;
+    float ratePitch;
+    float rateYaw;
+    float bodyAccelerationX;
+    float bodyAccelerationY;
+    float bodyAccelerationZ;
+    float dynamicPressure;
+};
+
 struct EffectorList
 { 
     float motor1Thrust; //Newtons
@@ -166,8 +180,8 @@ public:
     //https://www.geeksforgeeks.org/when-do-we-use-initializer-list-in-c/
     BTOL_Controller(AP_AHRS &ahrs, AP_Baro &baro, const AP_Vehicle::FixedWing &parms): 
     _ahrs(ahrs), 
-    _baro(baro),
-    aparm(parms),
+    _baro(baro), 
+    _aparm(parms),
     //_pid_rate_roll(AC_PID_ROLL_RATE_P, AC_PID_ROLL_RATE_I, AC_PID_ROLL_RATE_D, AC_PID_ROLL_RATE_IMAX, AC_PID_ROLL_RATE_FF, AC_PID_ROLL_RATE_FILTER_T, AC_PID_ROLL_RATE_FILTER_E, AC_PID_ROLL_RATE_FILTER_D, PID_400HZ_DT),
     //_pid_rate_pitch(AC_PID_PITCH_RATE_P, AC_PID_PITCH_RATE_I, AC_PID_PITCH_RATE_D, AC_PID_PITCH_RATE_IMAX, AC_PID_PITCH_RATE_FF, AC_PID_PITCH_RATE_FILTER_T, AC_PID_PITCH_RATE_FILTER_E, AC_PID_PITCH_RATE_FILTER_D, PID_400HZ_DT),
     //_pid_rate_yaw(AC_PID_YAW_RATE_P, AC_PID_YAW_RATE_I, AC_PID_YAW_RATE_D, AC_PID_YAW_RATE_IMAX, AC_PID_YAW_RATE_FF, AC_PID_YAW_RATE_FILTER_T, AC_PID_YAW_RATE_FILTER_E, AC_PID_YAW_RATE_FILTER_D, PID_400HZ_DT),
@@ -234,6 +248,18 @@ public:
         state.regulatorMode = CONTROLLER_STATE_REGULATOR_MODE_RATE; //0 = none, 1 = passthrough, 2 = regulator on.
         state.commandMode = 0; //0 = Manual vectored thrust.
         state.armedState = 0; //0 = disarmed, 1 = armed.
+
+
+        estimate.attitudePitch = 0.0f;
+        estimate.attitudeRoll = 0.0f;
+        estimate.bodyAccelerationX = 0.0f;
+        estimate.bodyAccelerationY = 0.0f;
+        estimate.bodyAccelerationZ = 0.0f;
+        estimate.heading = 0.0f;
+        estimate.ratePitch = 0.0f;
+        estimate.rateRoll = 0.0f;
+        estimate.rateYaw = 0.0f;
+        estimate.dynamicPressure = 0.0f;
     }
 
 
@@ -277,6 +303,9 @@ public:
     float calculateMotorThrustBasedOnTiltAngle(float attainedTiltAngle, float desiredForceForward, float desiredForceUp, float satisfactionAngleLow, float satisfactionAngleHigh); //use this function carefully to avoid div/0!
 
     EffectorList calculateEffectorPositions(float dt);
+
+    void updateSensorData(void);
+    void updateAdhrsEstimate(void);
 
 	static const struct AP_Param::GroupInfo var_info[];
 
@@ -326,7 +355,7 @@ private:
     AP_AHRS &_ahrs;
     AP_Baro &_baro;
    // AP_InertialSensor 
-    const AP_Vehicle::FixedWing &aparm;
+    const AP_Vehicle::FixedWing &_aparm;
     //AP_AutoTune::ATGains gains;
     AP_Float rollRateCommandGain;
     AP_Float pitchRateCommandGain;
@@ -399,6 +428,8 @@ private:
     AP_Float ElevonResidualOverflowRatio;
 
     AP_Float topOfAttitudeFeedbackDynamicPressure;
+    //AP_Float automaticHoverRollTrimMaximumAngle;
+    AP_Float automaticHoverRollTrimDynamicPressureMax;
 
     float pitchRateError;
     float rollRateError;
@@ -420,6 +451,7 @@ private:
     AircraftProperties aircraftProperties;
     ControllerState state;
     CommandInput command;
+    ADHRS_Estimate estimate;
 
     //AP_Logger::PID_Info _pid_info;
 
