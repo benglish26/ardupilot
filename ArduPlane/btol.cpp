@@ -54,8 +54,8 @@ extern const AP_HAL::HAL& hal;
 #define MTV_MAX_COMMANDABLE_TILT_ACCELERATION_IN_MSS 20.0f
 #define MTV_MIN_COMMANDABLE_TILT_ACCELERATION_IN_MSS 0.0f
 
-#define MOTOR_12_DEFAULT_MAX_THRUST_N 8.0f//7.0f//8.0
-#define MOTOR_3_DEFAULT_MAX_THRUST_N 3.5f//3.0f
+#define MOTOR_LIFT_DEFAULT_MAX_THRUST_N 16.671305f//7.0f//8.0
+#define MOTOR_PROPULSION_DEFAULT_MAX_THRUST_N 16.671305f//3.0f
 
 
 #define MOTOR_CONTROL_MIN_VALUE 1000
@@ -168,8 +168,8 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
     AP_GROUPINFO("PTCH_ATR",      8, BTOL_Controller, pitchAttitudeErrorToPitchRateGain,       1.0f),
     AP_GROUPINFO("MTV_TLT_DIR",      9, BTOL_Controller, manualTiltCommandMappingPolarity,       1.0f),
     AP_GROUPINFO("PATTICMDG",        10, BTOL_Controller, pitchAttitudeCommandGain,        0.5f),
-    AP_GROUPINFO("M12_MXTRST",        11, BTOL_Controller, motor12MaxThrust,        MOTOR_12_DEFAULT_MAX_THRUST_N),
-    AP_GROUPINFO("M3_MXTHRST",        12, BTOL_Controller, motor3MaxThrust,        MOTOR_3_DEFAULT_MAX_THRUST_N),
+    AP_GROUPINFO("MLFT_MXTHR",        11, BTOL_Controller, motorLiftMaxThrust,        MOTOR_LIFT_DEFAULT_MAX_THRUST_N),
+    AP_GROUPINFO("MPRO_MXTHR",        12, BTOL_Controller, motorPropulsionMaxThrust,        MOTOR_PROPULSION_DEFAULT_MAX_THRUST_N),
     AP_GROUPINFO("TOP_TRAN_Q",        13, BTOL_Controller, topOfTransitionDynamicPressure,        TOP_OF_TRANSITION_DEFAULT_DYNAMIC_PRESSURE),
     AP_GROUPINFO("HOV_AC_THR",        14, BTOL_Controller, verticalAccelerationThresholdToConsiderAircraftInHover,        DEFAULT_VERTICAL_ACCELERATION_THRESHOLD_TO_CONSIDER_AIRCRAFT_IN_HOVER),
     AP_GROUPINFO("MASS_KG",        15, BTOL_Controller, aircraftMassInKg,        DEFAULT_AIRCRAFT_MASS_IN_KG),
@@ -504,16 +504,16 @@ void Plane::btol_stabilize() {
         deltaStep = DELTA_VALUE_PER_TIMESTEP;
     }
 
-    int16_t servoControlValue5 = SERVO_CONTROL_CENTER_VALUE;// + constrain_int16(int16_t(rcCommandInputPitchStickAft*500), -500, 500);  //works (float)
+    //int16_t servoControlValue5 = SERVO_CONTROL_CENTER_VALUE;// + constrain_int16(int16_t(rcCommandInputPitchStickAft*500), -500, 500);  //works (float)
 
     EffectorList effectorCommands;
     float deltaTimeSecondsForPID = ((float)dt_us)/1000000.0f;
     effectorCommands = g2.btolController.calculateEffectorPositions(deltaTimeSecondsForPID); //PID_400HZ_DT); //this delta time is wrong, of course!  Should be dynamicly populated.
 
-    int16_t servoControlValueElevon1 = g2.btolController.calculateServoValueFromAngle(effectorCommands.elevon1Angle, AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MIN_ANGLE, AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MAX_ANGLE, AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MIN_ANGLE_PWM, AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MAX_ANGLE_PWM);
-    int16_t servoControlValueElevon2 = g2.btolController.calculateServoValueFromAngle(effectorCommands.elevon2Angle, AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MIN_ANGLE, AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MAX_ANGLE, AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MIN_ANGLE_PWM, AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MAX_ANGLE_PWM);
-    int16_t servoControlValueTilt1 = g2.btolController.calculateServoValueFromAngle(effectorCommands.tilt1Angle, TILT1_SERVO_MIN_ANGLE, TILT1_SERVO_MAX_ANGLE, TILT1_SERVO_MIN_ANGLE_PWM, TILT1_SERVO_MAX_ANGLE_PWM);
-    int16_t servoControlValueTilt2 = g2.btolController.calculateServoValueFromAngle(effectorCommands.tilt2Angle, TILT2_SERVO_MIN_ANGLE, TILT2_SERVO_MAX_ANGLE, TILT2_SERVO_MIN_ANGLE_PWM, TILT2_SERVO_MAX_ANGLE_PWM);
+    //int16_t servoControlValueElevon1 = g2.btolController.calculateServoValueFromAngle(effectorCommands.elevon1Angle, AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MIN_ANGLE, AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MAX_ANGLE, AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MIN_ANGLE_PWM, AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MAX_ANGLE_PWM);
+    //int16_t servoControlValueElevon2 = g2.btolController.calculateServoValueFromAngle(effectorCommands.elevon2Angle, AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MIN_ANGLE, AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MAX_ANGLE, AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MIN_ANGLE_PWM, AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MAX_ANGLE_PWM);
+    //int16_t servoControlValueTilt1 = g2.btolController.calculateServoValueFromAngle(effectorCommands.tilt1Angle, TILT1_SERVO_MIN_ANGLE, TILT1_SERVO_MAX_ANGLE, TILT1_SERVO_MIN_ANGLE_PWM, TILT1_SERVO_MAX_ANGLE_PWM);
+    //int16_t servoControlValueTilt2 = g2.btolController.calculateServoValueFromAngle(effectorCommands.tilt2Angle, TILT2_SERVO_MIN_ANGLE, TILT2_SERVO_MAX_ANGLE, TILT2_SERVO_MIN_ANGLE_PWM, TILT2_SERVO_MAX_ANGLE_PWM);
 
     //starting out expecting values from 0.0 to +1.0
     //need to convert motor thrust to ESC commands using some scalar...ie: from newtons to scalar 0.0 to 1.0
@@ -526,9 +526,15 @@ void Plane::btol_stabilize() {
     if(batteryVoltageRatio > 1.0f) batteryVoltageRatio = 1.0f;
     if(batteryVoltageRatio < 0.5f) batteryVoltageRatio = 0.5f; //constrain value
 
-    int16_t servoControlValueMotor1 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor1Thrust / g2.btolController.getMotor12MaxThrust()*batteryVoltageRatio) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE); //this needs to be scaled and offset correctly TODO
-    int16_t servoControlValueMotor2 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor2Thrust / g2.btolController.getMotor12MaxThrust()*batteryVoltageRatio)* MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);
-    int16_t servoControlValueMotor3 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor3Thrust / g2.btolController.getMotor3MaxThrust()*batteryVoltageRatio) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);  //isn't working.  Is stuck at 2000.
+    int16_t servoControlValueMotor1 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor1Thrust / g2.btolController.getLiftMotorMaxThrust()*batteryVoltageRatio) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE); //this needs to be scaled and offset correctly TODO
+    int16_t servoControlValueMotor2 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor2Thrust / g2.btolController.getLiftMotorMaxThrust()*batteryVoltageRatio)* MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);
+    int16_t servoControlValueMotor3 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor3Thrust / g2.btolController.getLiftMotorMaxThrust()*batteryVoltageRatio) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);  //isn't working.  Is stuck at 2000.
+    int16_t servoControlValueMotor4 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor4Thrust / g2.btolController.getLiftMotorMaxThrust()*batteryVoltageRatio) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE); //this needs to be scaled and offset correctly TODO
+    int16_t servoControlValueMotor5 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor5Thrust / g2.btolController.getLiftMotorMaxThrust()*batteryVoltageRatio)* MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);
+    int16_t servoControlValueMotor6 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor6Thrust / g2.btolController.getLiftMotorMaxThrust()*batteryVoltageRatio) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);  //isn't working.  Is stuck at 2000.
+    int16_t servoControlValueMotor7 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor7Thrust / g2.btolController.getLiftMotorMaxThrust()*batteryVoltageRatio) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE); //this needs to be scaled and offset correctly TODO
+    int16_t servoControlValueMotor8 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor8Thrust / g2.btolController.getLiftMotorMaxThrust()*batteryVoltageRatio)* MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);
+    int16_t servoControlValueMotor9 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor9Thrust / g2.btolController.getPropulsionMotorMaxThrust()*batteryVoltageRatio) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);  //isn't working.  Is stuck at 2000.
 
 
     //int16_t servoControlValueMotor1 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor1Thrust / g2.btolController.getMotor12MaxThrust()) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE); //this needs to be scaled and offset correctly TODO
@@ -540,6 +546,12 @@ void Plane::btol_stabilize() {
         servoControlValueMotor1 = THROTTLE_DISARMED_VALUE;
         servoControlValueMotor2 = THROTTLE_DISARMED_VALUE;
         servoControlValueMotor3 = THROTTLE_DISARMED_VALUE;
+        servoControlValueMotor4 = THROTTLE_DISARMED_VALUE;
+        servoControlValueMotor5 = THROTTLE_DISARMED_VALUE;
+        servoControlValueMotor6 = THROTTLE_DISARMED_VALUE;
+        servoControlValueMotor7 = THROTTLE_DISARMED_VALUE;
+        servoControlValueMotor8 = THROTTLE_DISARMED_VALUE;
+        servoControlValueMotor9 = THROTTLE_DISARMED_VALUE;
     }
 
 //Need to put more protections!  better than above.
@@ -548,11 +560,11 @@ void Plane::btol_stabilize() {
     hal.rcout->write(CH_1, servoControlValueMotor1);
     hal.rcout->write(CH_2, servoControlValueMotor2);  //not working...perhaps base zero??
     hal.rcout->write(CH_3, servoControlValueMotor3);
-    hal.rcout->write(CH_4, servoControlValue5);
-    hal.rcout->write(CH_5, servoControlValueElevon1);
-    hal.rcout->write(CH_6, servoControlValueElevon2);
-    hal.rcout->write(CH_7, servoControlValueTilt1);
-    hal.rcout->write(CH_8, servoControlValueTilt2);
+    hal.rcout->write(CH_4, servoControlValueMotor4);
+    hal.rcout->write(CH_5, servoControlValueMotor5);
+    hal.rcout->write(CH_6, servoControlValueMotor6);
+    hal.rcout->write(CH_7, servoControlValueMotor7);
+    hal.rcout->write(CH_8, servoControlValueMotor8);
 
      /*   hal.rcout->write(CH_1, servoControlValueElevon1);
     hal.rcout->write(CH_2, servoControlValueElevon2);  //not working...perhaps base zero??
@@ -570,38 +582,41 @@ void Plane::btol_stabilize() {
 //https://ardupilot.org/dev/docs/code-overview-adding-a-new-log-message.html
 
     uint64_t timeForLog = AP_HAL::micros64();
-    AP::logger().Write("BSTB", "TimeUS,dt_ms,dt_us,ft_us,dt_PID,c1,c2,c3,c4,c5,c6,c7,c8,bVr",
-                   "SSSSS---------", // units: seconds, rad/sec
-                   "F0000000000000", // mult: 1e-6, 1e-2
-                   "QIIIfhhhhhhhhf", // format: uint64_t, float
+    AP::logger().Write("BSTB", "TimeUS,dt_ms,dt_us,ft_us,dt_PID,c1,c2,c3,c4,c5,c6,c7,c8,c9,bVr",
+                   "SSSSS----------", // units: seconds, rad/sec
+                   "F00000000000000", // mult: 1e-6, 1e-2
+                   "QIIIfhhhhhhhhhf", // format: uint64_t, float
                    timeForLog,
                    dt_ms,
                    dt_us,
                    functionTime_us,
                    (double) deltaTimeSecondsForPID,
-                   servoControlValueElevon1,
-                   servoControlValueElevon2,
-                   servoControlValueTilt1,
-                   servoControlValueTilt2,
-                   servoControlValue5,
                    servoControlValueMotor1,
                    servoControlValueMotor2,
                    servoControlValueMotor3,
+                   servoControlValueMotor4,
+                   servoControlValueMotor5,
+                   servoControlValueMotor6,
+                   servoControlValueMotor7,
+                   servoControlValueMotor8,
+                   servoControlValueMotor9,
                    (double)batteryVoltageRatio
                    );
 
-AP::logger().Write("BEFF", "TimeUS,m1,m2,m3,e1,e2,t1,t2,mass,VbatR",
-                   "S---------", // units: seconds, rad/sec
-                   "F000000000", // mult: 1e-6, 1e-2
-                   "Qfffffffff", // format: uint64_t, float
+AP::logger().Write("BEFF", "TimeUS,m1,m2,m3,m4,m5,m6,m7,m8,m9mass,VbatR",
+                   "S-----------", // units: seconds, rad/sec
+                   "F00000000000", // mult: 1e-6, 1e-2
+                   "Qfffffffffff", // format: uint64_t, float
                    timeForLog,
                    (double)effectorCommands.motor1Thrust,
                    (double)effectorCommands.motor2Thrust,
                    (double)effectorCommands.motor3Thrust,
-                   (double)effectorCommands.elevon1Angle,
-                   (double)effectorCommands.elevon2Angle,
-                   (double)effectorCommands.tilt1Angle,
-                   (double)effectorCommands.tilt2Angle,
+                   (double)effectorCommands.motor4Thrust,
+                   (double)effectorCommands.motor5Thrust,
+                   (double)effectorCommands.motor6Thrust,
+                   (double)effectorCommands.motor7Thrust,
+                   (double)effectorCommands.motor8Thrust,
+                   (double)effectorCommands.motor9Thrust,
                    (double)g2.btolController.getAircraftMass(),
                    (double)batteryVoltageRatio
                     );
@@ -1396,20 +1411,22 @@ AP::logger().Write("BARO", "TimeUS,est_q,bVS,bALT",
     //calculate desired forces
     float desiredAccelerationZ = 0.0f;
     float desiredAccelerationX = 0.0f;
-        if(state.commandMode == 0) //manual tilt angle
-        {
+       // if(state.commandMode == 0) //manual tilt angle
+       // {
             //calculate vector components based on tilt and thrust
-            desiredAccelerationZ = -1.0 * sinf(command.targetTiltAngle) * command.targetTiltAcceleration; //vertical component in body frame. (+Z = down)
-            desiredAccelerationX =  cosf(command.targetTiltAngle) * command.targetTiltAcceleration; //longitudinal component in body frame. (+X = forward)
+           // desiredAccelerationZ = -1.0 * sinf(command.targetTiltAngle) * command.targetTiltAcceleration; //vertical component in body frame. (+Z = down)
+            desiredAccelerationZ = -1.0 * command.targetTiltAcceleration; //vertical component in body frame. (+Z = down)
             
-        }else{
-            //take target accelerations already vectorized and use those.
-            desiredAccelerationZ = command.targetAccelerationZ;  //Right now commanded directly by pilot
-            desiredAccelerationX = command.targetAccelerationX;  //Right now commanded directly by pilot
-        }
+            desiredAccelerationX =  0.0;//cosf(command.targetTiltAngle) * command.targetTiltAcceleration; //longitudinal component in body frame. (+X = forward)
+            
+      //  }else{
+      //      //take target accelerations already vectorized and use those.
+      //      desiredAccelerationZ = command.targetAccelerationZ;  //Right now commanded directly by pilot
+      //      desiredAccelerationX = command.targetAccelerationX;  //Right now commanded directly by pilot
+       // }
 
         float requiredForceZ = desiredAccelerationZ * getAircraftMass();//aircraftProperties.totalMass; //Newtons
-        float requiredForceX = desiredAccelerationX * getAircraftMass();//aircraftProperties.totalMass; //Newtons
+        //float requiredForceX = desiredAccelerationX * getAircraftMass();//aircraftProperties.totalMass; //Newtons
 
     //calculate effector outputs
 
@@ -1419,247 +1436,74 @@ AP::logger().Write("BARO", "TimeUS,est_q,bVS,bALT",
 
         surfaceToMotorMixingRatio = getRangeRatio(dynamicPressure, EffectorMixingDynamicPressureBottom, EffectorMixingDynamicPressureTop);
 
-        float pitchMomentForSurfaces = 0.0f;
-        float rollMomentForSurfaces = 0.0f;
+       // float pitchMomentForSurfaces = 0.0f;
+       // float rollMomentForSurfaces = 0.0f;
         float pitchMomentForMotors = 0.0f;
         float rollMomentForMotors = 0.0f;
+        float yawMomentForMotors = 0.0f;
+s
+       // if(surfaceToMotorMixingRatio < 0.0f) surfaceToMotorMixingRatio = 0.0f;
+       // if(surfaceToMotorMixingRatio > 1.0f) surfaceToMotorMixingRatio = 1.0f;
 
-        if(surfaceToMotorMixingRatio < 0.0f) surfaceToMotorMixingRatio = 0.0f;
-        if(surfaceToMotorMixingRatio > 1.0f) surfaceToMotorMixingRatio = 1.0f;
-
-        pitchMomentForSurfaces = desiredMomentY * (surfaceToMotorMixingRatio);
-        rollMomentForSurfaces = desiredMomentX * (surfaceToMotorMixingRatio);
-
-        pitchMomentForMotors = desiredMomentY * (1.0f - surfaceToMotorMixingRatio);
-        rollMomentForMotors = desiredMomentX * (1.0f - surfaceToMotorMixingRatio);
+       // pitchMomentForSurfaces = desiredMomentY * (surfaceToMotorMixingRatio);
+       // rollMomentForSurfaces = desiredMomentX * (surfaceToMotorMixingRatio);
 
 
+        pitchMomentForMotors = desiredMomentY;
+        rollMomentForMotors = desiredMomentX;
+        yawMomentForMotors = desiredMomentZ;
 
-        //control surfaces: Elevons.
-        //Trailing edge up is positive.
-        float elevon1Angle = 0.0f; //there is likely a better metric...ratio, or effort, or contribution...
-        float elevon2Angle = 0.0f;
-        float pitchMomentToElevonSurfaceDeflectionGain = 1.0f;
-        float rollMomentToElevonSurfaceDeflectionGainPos = 1.0f;
-
-        //TODO: Calculate local airflow due to prop/thrust.
-
-
-        //TODO: have control surface movement become more limited as we get into hover?  Ie: shape the up and down limits?
-        float distanceXFromCGElevonsAbsv = fabs(aircraftProperties.elevon1LocationX - getCenterOfMassLocationX()); //aircraftProperties.centerOfMassLocationX);//will be positive //should I make this an abs
-        float distanceYFromCGElevonsAbsv = fabs(aircraftProperties.elevon1LocationY - aircraftProperties.centerOfMassLocationY);//will be positive //should I make these ABS?  and understand that they are symetric?
-
-        //this is assuming symetrical elevons, and symetrical deflections.  TODO: protect against negative values.
-        //float elevonMaxForceMagnitude = getControlSurfaceForce(AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MAX_ANGLE, AIRCRAFT_PROPERTIES_ELEVON_AREA_M2, dynamicPressure);
-
-        //Calculate how much force the surface will generate per deflection.  Assuming linear (or close-enough)
-        float elevonDeflectionToForceGain = dynamicPressure * AIRCRAFT_PROPERTIES_ELEVON_AREA_M2 * (1.0f) * elevonCoefLiftPerDeflection;
-        //protect agains div/0, keeps surfaces from railing too hard at low speeds (which could be high speeds!)//TODO: //Make better.
-        float protectedElevonDeflectionToForceGain = elevonDeflectionToForceGain;
-        if (protectedElevonDeflectionToForceGain < AIRCRAFT_PROPERTIES_ELEVON_AREA_M2 * elevonControlMinimumDynamicPressure * elevonCoefLiftPerDeflection)
-        {
-            protectedElevonDeflectionToForceGain = AIRCRAFT_PROPERTIES_ELEVON_AREA_M2 * elevonControlMinimumDynamicPressure * elevonCoefLiftPerDeflection;
-        }
-
-        //TODO: need to protect agains a div/0 here.
-        if(protectedElevonDeflectionToForceGain < 0.01) protectedElevonDeflectionToForceGain = 0.01;
-
-
-        //Calculate the moment-to-deflection gain so we can calculate the deflection (later).  We use the force and distance.
-        pitchMomentToElevonSurfaceDeflectionGain = 1.0f / (protectedElevonDeflectionToForceGain * distanceXFromCGElevonsAbsv); //the (+) is to convert from trailing edge up = positive to force -down = positive. with the positve arm...
-        rollMomentToElevonSurfaceDeflectionGainPos = 1.0f / (protectedElevonDeflectionToForceGain * distanceYFromCGElevonsAbsv); //the (+) is to convert from trailing edge up = positive to force -down = positive. with the positve arm...to positive roll.
-
-        //Calculate desired angle for Elevon # 1 (Left).  The 0.5f is because we (implicitly) have two elevons to split the moments.
-        elevon1Angle = 0.5f*pitchMomentToElevonSurfaceDeflectionGain * pitchMomentForSurfaces - 0.5f*rollMomentToElevonSurfaceDeflectionGainPos * rollMomentForSurfaces;
-        //Limit elevon deflection to hardware limits.
-        if(elevon1Angle > AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MAX_ANGLE)
-        {
-            elevon1Angle = AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MAX_ANGLE;
-        }else if(elevon1Angle < AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MIN_ANGLE)
-        {
-            elevon1Angle = AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MIN_ANGLE;
-        }
-        //Calculate desired angle for Elevon # 2 (Right) The 0.5f is because we (implicitly) have two elevons to split the moments.
-        elevon2Angle = 0.5f*pitchMomentToElevonSurfaceDeflectionGain * pitchMomentForSurfaces + 0.5f*rollMomentToElevonSurfaceDeflectionGainPos * rollMomentForSurfaces;
-        //Limit elevon deflection to hardware limits.
-        if(elevon2Angle > AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MAX_ANGLE)
-        {
-            elevon2Angle = AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MAX_ANGLE;
-        }else if(elevon2Angle < AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MIN_ANGLE)
-        {
-            elevon2Angle = AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MIN_ANGLE;
-        }
-
-        //lowpass filter the desired elevon angles
-        static float filteredElevon1Angle = 0.0;
-        filteredElevon1Angle = filteredElevon1Angle + getFilterAlpha(lowpassFilterCuttofFrequencyElevonAngle, dt)  * (elevon1Angle - filteredElevon1Angle);
-        elevon1Angle = filteredElevon1Angle;
-        static float filteredElevon2Angle = 0.0;
-        filteredElevon2Angle = filteredElevon2Angle + getFilterAlpha(lowpassFilterCuttofFrequencyElevonAngle, dt)  * (elevon2Angle - filteredElevon2Angle);
-        elevon2Angle = filteredElevon2Angle;
-
-
-
-        //SOLVED: I think there is an issue here as pitch is resulting in a motor roll command.
-        //Estimate how much moment the elevons are applying to the airframe based on the deflection, deflection to force gain (dynamic pressure), and arm)
-        float estimatedAttainedElevonMomentY = elevon1Angle * elevonDeflectionToForceGain * 1.0f * distanceXFromCGElevonsAbsv  +   elevon2Angle * elevonDeflectionToForceGain * 1.0f * distanceXFromCGElevonsAbsv;
-        float estimatedAttainedElevonMomentX = elevon1Angle * elevonDeflectionToForceGain * -1.0f * distanceYFromCGElevonsAbsv +   elevon2Angle * elevonDeflectionToForceGain * 1.0f * distanceYFromCGElevonsAbsv;
-        
-        float residualElevonMomentX = rollMomentForSurfaces - estimatedAttainedElevonMomentX;
-        float residualElevonMomentY = pitchMomentForSurfaces - estimatedAttainedElevonMomentY;
-
-        effectors.elevon1Angle = elevon1Angle;
-        effectors.elevon2Angle = elevon2Angle;
-
-        AP::logger().Write("BELE", "TimeUS,q,rMom,pMom,elvDeflFrceGn,e1Cmd,e2Cmd,resX,resY,mM,mR",
-            "S----------", // units: seconds, rad/sec
-            "FB00A000000", // mult: 1e-6, 1e-2
-            "Qffffffffff", // format: uint64_t, float
-            AP_HAL::micros64(),
-            (double)dynamicPressure,
-            (double)desiredMomentX,
-            (double)desiredMomentY,
-            (double)elevonDeflectionToForceGain,
-            (double)elevon1Angle,
-            (double)elevon2Angle,
-            (double)residualElevonMomentX,
-            (double)residualElevonMomentY,
-            (double)estimatedNetMotorTorqueToCancelOut,
-            (double)surfaceToMotorMixingRatio
-            );
-
-        //TEST:  //NOT TESTED YET!...tested some....need to improve.
-        //Have the motors do what the controls surfaces cannot.
-        //desiredMomentX = residualElevonMomentX * ElevonResidualOverflowRatio;  //TODO: This is a test.
-        //desiredMomentY = residualElevonMomentY * ElevonResidualOverflowRatio; 
-        pitchMomentForMotors += residualElevonMomentY * ElevonResidualOverflowRatio;  //add the residual from the surfaces to the motors!
-        rollMomentForMotors += residualElevonMomentX * ElevonResidualOverflowRatio;
 
         desiredMomentX = rollMomentForMotors; //so we don't need to change the code below.
         desiredMomentY = pitchMomentForMotors;
+        desiredMomentZ = yawMomentForMotors;
 
 
 
         //Now calculate motors and tilts!
         //Calculate forward/aft motor thurst(force) distribution from the total body Z force desired and the desired pitching moment.
         float totalForceUp = 0.0f; //backwards
-        float totalMomentForward = 0.0f; //backwards, but this is how I did the math, so lets start with this, as the arms work out this way if the x axis is used
-        float forceUpMotors1and2 = 0.0f;
-        float forceUpMotor3 = 0.0f;
+        //float totalMomentForward = 0.0f; //backwards, but this is how I did the math, so lets start with this, as the arms work out this way if the x axis is used
+        //float forceUpMotors1and2 = 0.0f;
+        //float forceUpMotor3 = 0.0f;
 
         totalForceUp = requiredForceZ * -1.0f; //-1.0 is converting from the +Z = down frame //could get rid of this, and fix when we calculate the tilt angle?
-        totalMomentForward = desiredMomentY;  //there is no -1.0 here because the moment arms are defined in such a way that the moment produced is negative!
+
+
+
+
+        
+        //totalMomentForward = desiredMomentY;  //there is no -1.0 here because the moment arms are defined in such a way that the moment produced is negative!
 
         //TODO: need a divide by zero check here.  Make sure that D12 and D3 are not equal!
-        float distanceXFromCGMotors12 = aircraftProperties.motor1LocationX - getCenterOfMassLocationX();// aircraftProperties.centerOfMassLocationX;
-        float distanceXFromCGMotor3 = aircraftProperties.motor3LocationX - getCenterOfMassLocationX(); //aircraftProperties.centerOfMassLocationX;
+        //float distanceXFromCGMotors12 = aircraftProperties.motor1LocationX - getCenterOfMassLocationX();// aircraftProperties.centerOfMassLocationX;
+       // float distanceXFromCGMotor3 = aircraftProperties.motor3LocationX - getCenterOfMassLocationX(); //aircraftProperties.centerOfMassLocationX;
 
-        forceUpMotors1and2 = (totalMomentForward - distanceXFromCGMotor3 * totalForceUp) / (distanceXFromCGMotors12 - distanceXFromCGMotor3); //this appears to be working...pitch seems to be backwards, but total force up is working, which means required force Z and pitch moment need to be reversed upstream of here.. could also be an transmitter reversing issue.
-        forceUpMotor3 = (distanceXFromCGMotors12 * totalForceUp - totalMomentForward) / (distanceXFromCGMotors12 - distanceXFromCGMotor3); //this appears to be working...don't know about direction/magnitude...
+      //  forceUpMotors1and2 = (totalMomentForward - distanceXFromCGMotor3 * totalForceUp) / (distanceXFromCGMotors12 - distanceXFromCGMotor3); //this appears to be working...pitch seems to be backwards, but total force up is working, which means required force Z and pitch moment need to be reversed upstream of here.. could also be an transmitter reversing issue.
+       // forceUpMotor3 = (distanceXFromCGMotors12 * totalForceUp - totalMomentForward) / (distanceXFromCGMotors12 - distanceXFromCGMotor3); //this appears to be working...don't know about direction/magnitude...
 
         //NOW CALCULATE DIFFERENT FORCES FOR THE ROLL CONTROLLER
         float forceUpMotor1 = 0.0;
         float forceUpMotor2 = 0.0;
         float deltaForceUpStation12ForRoll = 0.0; //re-aranged so it would say "deltaForce" =)
 
-        //Note this will change if we switch to the +Z = down coordinate system. (will need to remove the *-1.0)
-        //this will be very simplified because of the symetric design of the airplane.  Can make more encompasing later!
-        float distanceYFromCGMotors12ForRoll = aircraftProperties.motor1LocationY - aircraftProperties.centerOfMassLocationY;//(this is a negative value)  CG = 0.0.
-        deltaForceUpStation12ForRoll = desiredMomentX / (2.0f * distanceYFromCGMotors12ForRoll);
-        #define DELTA_MOTOR_FORCE_UP_FOR_ROLL_POLARITY 1.0 //change this if we move to a controls frame down.
+        float liftMotorThrustDemands[8] = {0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f};
+
+        //float zForceToMotorThrustMatrix[8] = {-0.125f,-0.125f,-0.125f,-0.125f,-0.125f,-0.125f,-0.125f,-0.125f};
 
 
-        forceUpMotor1 = forceUpMotors1and2 / 2.0f + DELTA_MOTOR_FORCE_UP_FOR_ROLL_POLARITY * -1.0f * deltaForceUpStation12ForRoll;
-        forceUpMotor2 = forceUpMotors1and2 / 2.0f + DELTA_MOTOR_FORCE_UP_FOR_ROLL_POLARITY *  1.0f  * deltaForceUpStation12ForRoll;
-
-        //NOW CALCULATE DIFFERENT FORCES FOR THE YAW CONTROLLER
-        float forceForwardMotors12 = 0.0;
-        float forceForwardMotor1 = 0.0;
-        float forceForwardMotor2 = 0.0;
-        float deltaForceForwardStation12ForYaw = 0.0;
-
-        //max forward thrust should be defined on the capabilities of the motors, and need for yaw overhead.
-        forceForwardMotors12 = constrain_float(requiredForceX, -20, 20); //temp min and max thrust values.  //Will need to change this for forward flight vs hover.
-
-        #define DELTA_MOTOR_FORCE_FORWARD_FOR_YAW_POLARITY 1.0 //change this if we move to a controls frame down.
-        float distanceYFromCGMotors12ForYaw = aircraftProperties.motor1LocationY - aircraftProperties.centerOfMassLocationY;//(this is a negative value)  CG = 0.0.
-        deltaForceForwardStation12ForYaw = desiredMomentZ / (2.0f * distanceYFromCGMotors12ForYaw);
-
-        forceForwardMotor1 = forceForwardMotors12 / 2.0f + DELTA_MOTOR_FORCE_FORWARD_FOR_YAW_POLARITY * -1.0f * deltaForceForwardStation12ForYaw;
-        forceForwardMotor2 = forceForwardMotors12 / 2.0f + DELTA_MOTOR_FORCE_FORWARD_FOR_YAW_POLARITY *  1.0f  * deltaForceForwardStation12ForYaw;
-
-        //Calculate tilt angle from the forces...
-
-        //for the tilt angle calulation, enforce a minimum upward force.
-        float idealTilt1Angle = 0.0f; //0 is forward, 90degrees (this is radians) is up.
-        float tiltCalculationMotor1ForceUp = forceUpMotor1;
-        float tiltCalculationMotor1ForceForward = forceForwardMotor1;
-        /*#define TILT_CALCULATION_MOTOR_UP_FORCE_MIN_VALUE 0.01f  //this should only happen when there are small numbers to deal with, ie when the total trust magniude is low.....this to make the tilts want to point up.  There is a better way.  TODO:
-        if(tiltCalculationMotor1ForceUp < TILT_CALCULATION_MOTOR_UP_FORCE_MIN_VALUE)
-        {
-            tiltCalculationMotor1ForceUp = TILT_CALCULATION_MOTOR_UP_FORCE_MIN_VALUE;
-        }*/
-
-        idealTilt1Angle = atan2f(tiltCalculationMotor1ForceUp, tiltCalculationMotor1ForceForward);
 
 
-        float tilt1Angle = 0.0f;
-        tilt1Angle = constrain_float(idealTilt1Angle, TILT1_SERVO_MIN_ANGLE, TILT2_SERVO_MAX_ANGLE);
-
-        float motor1ForceDemand = 0.0;
-        #define TILT_SATISFACTION_ANGLE_LOW 0.174533f
-        #define TILT_SATISFACTION_ANGLE_HIGH 1.309f
-        #define TILT_ANGLE_CONSTRAINT_FROM_COLLECTIVE_TILT_ANGLE_GAIN_RAD_PER_MSS 0.1f //*10m/s/s = 1.0 rad which is about 57deg
-        float maxConstrainedIndividualTiltAngleDelta = TILT_ANGLE_CONSTRAINT_FROM_COLLECTIVE_TILT_ANGLE_GAIN_RAD_PER_MSS * command.targetTiltAcceleration + 0.1f; //allow some movement at no throttle.
-        float maxConstrainedIndividualTiltAngleMax = command.targetTiltAngle + maxConstrainedIndividualTiltAngleDelta;
-        float maxConstrainedIndividualTiltAngleMin = command.targetTiltAngle - maxConstrainedIndividualTiltAngleDelta;
-        tilt1Angle = constrain_float(tilt1Angle, maxConstrainedIndividualTiltAngleMin, maxConstrainedIndividualTiltAngleMax);
-        //#define TILT_ANGLE_MAX_DELTA_FROM_COLLECTIVE_TILT_ANGLE...this doesn't work because of the contribution from the tail motor...
-        //lets make it a large value which is enough to keep the motors from hitting the ground at low thrust values.
-
-        //TODO: individual tilts shouldn't be making full decisions.  look at collective values.
-        motor1ForceDemand = calculateMotorThrustBasedOnTiltAngle(tilt1Angle, tiltCalculationMotor1ForceForward, tiltCalculationMotor1ForceUp, TILT_SATISFACTION_ANGLE_LOW, TILT_SATISFACTION_ANGLE_HIGH);
-
-        //the tilts move fast, but not that fast...
-        //move tilt 1 angle to this value at the correct rate, Add tilt rate limits, so we can slew correctly and don’t put motor values in that aren’t aligned with tilt angle.
-
-        float idealTilt2Angle = 0.0f;
-        float tiltCalculationMotor2ForceUp = forceUpMotor2;
-        float tiltCalculationMotor2ForceForward = forceForwardMotor2;
-        //#define TILT_CALCULATION_MOTOR_UP_FORCE_MIN_VALUE 0.2  //this should only happen when there are small numbers to deal with, ie when the total trust magniude is low...
-     //   if(tiltCalculationMotor2ForceUp < TILT_CALCULATION_MOTOR_UP_FORCE_MIN_VALUE)
-     //   {
-      //      tiltCalculationMotor2ForceUp = TILT_CALCULATION_MOTOR_UP_FORCE_MIN_VALUE;
-       // }
-
-        idealTilt2Angle = atan2f(tiltCalculationMotor2ForceUp, tiltCalculationMotor2ForceForward);
-
-        float tilt2Angle = 0.0f;
-        tilt2Angle = constrain_float(idealTilt2Angle, TILT1_SERVO_MIN_ANGLE, TILT2_SERVO_MAX_ANGLE);
-        tilt2Angle = constrain_float(tilt2Angle, maxConstrainedIndividualTiltAngleMin, maxConstrainedIndividualTiltAngleMax);
-
-        float motor2ForceDemand = calculateMotorThrustBasedOnTiltAngle(tilt2Angle, tiltCalculationMotor2ForceForward, tiltCalculationMotor2ForceUp, TILT_SATISFACTION_ANGLE_LOW, TILT_SATISFACTION_ANGLE_HIGH);
+        effectors.motor1Thrust = liftMotorThrustDemands[0];
+        effectors.motor2Thrust = liftMotorThrustDemands[1];
+        effectors.motor3Thrust = liftMotorThrustDemands[2];
+        effectors.motor4Thrust = liftMotorThrustDemands[3];
+        effectors.motor5Thrust = liftMotorThrustDemands[4];
+        effectors.motor6Thrust = liftMotorThrustDemands[5];
+        effectors.motor7Thrust = liftMotorThrustDemands[6];
+        effectors.motor8Thrust = liftMotorThrustDemands[7];
+        effectors.motor9Thrust = 0.0f;
         
-        float motor3ForceDemand = forceUpMotor3; //make sure can't be negative...or update the firmware so it can be!
-
-
-        //lowpass filter the desired elevon angles
-        static float filteredTilt1Angle = 0.0;
-        filteredTilt1Angle = filteredTilt1Angle + getFilterAlpha(lowpassFilterCuttofFrequencyTiltAngle, dt)  * (tilt1Angle - filteredTilt1Angle);
-        tilt1Angle = filteredTilt1Angle;
-        static float filteredTilt2Angle = 0.0;
-        filteredTilt2Angle = filteredTilt2Angle + getFilterAlpha(lowpassFilterCuttofFrequencyTiltAngle, dt)  * (tilt2Angle - filteredTilt2Angle);
-        tilt2Angle = filteredTilt2Angle;
-
-
-
-        effectors.tilt1Angle = tilt1Angle;
-        effectors.tilt2Angle = tilt2Angle;
-
-        effectors.motor1Thrust = motor1ForceDemand;//forceUpMotor1; //will need to be replaced the total force, not just the up force!
-        effectors.motor2Thrust = motor2ForceDemand; //forceUpMotor2; //will need to be replaced the total force, not just the up force!
-        effectors.motor3Thrust = motor3ForceDemand; //will need to be replaced the total force, not just the up force!
-    
 
     return effectors;
 }

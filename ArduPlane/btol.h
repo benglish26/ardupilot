@@ -104,6 +104,12 @@ struct EffectorList
     float motor1Thrust; //Newtons
     float motor2Thrust; //Newtons
     float motor3Thrust; //Newtons
+    float motor4Thrust; //Newtons
+    float motor5Thrust; //Newtons
+    float motor6Thrust; //Newtons
+    float motor7Thrust; //Newtons
+    float motor8Thrust; //Newtons
+    float motor9Thrust; //Newtons
     float tilt1Angle; //Radians
     float tilt2Angle; //Radians
     float elevon1Angle; //Radians
@@ -244,6 +250,12 @@ public:
         effectors.motor1Thrust = 0.0f;
         effectors.motor2Thrust = 0.0f;
         effectors.motor3Thrust = 0.0f;
+        effectors.motor4Thrust = 0.0f;
+        effectors.motor5Thrust = 0.0f;
+        effectors.motor6Thrust = 0.0f;
+        effectors.motor7Thrust = 0.0f;
+        effectors.motor8Thrust = 0.0f;
+        effectors.motor9Thrust = 0.0f;
 
         state.regulatorMode = CONTROLLER_STATE_REGULATOR_MODE_RATE; //0 = none, 1 = passthrough, 2 = regulator on.
         state.commandMode = 0; //0 = Manual vectored thrust.
@@ -335,8 +347,10 @@ public:
     AP_Float &getPitchPassthroughAccelerationCommandGain(void) { return passthroughAngularAccelerationCommandGainPitch; } 
     AP_Float &getYawPassthroughAccelerationCommandGain(void) { return passthroughAngularAccelerationCommandGainYaw; } 
 
-    AP_Float &getMotor12MaxThrust(void) { return motor12MaxThrust; } 
-    AP_Float &getMotor3MaxThrust(void) { return motor3MaxThrust; } 
+    //AP_Float &getMotor12MaxThrust(void) { return motor12MaxThrust; } 
+    //AP_Float &getMotor3MaxThrust(void) { return motor3MaxThrust; } 
+    AP_Float &getLiftMotorMaxThrust(void) { return motorLiftMaxThrust; } 
+    AP_Float &getPropulsionMotorMaxThrust(void) { return motorPropulsionMaxThrust; } 
 
     AP_Float &getTopOfTransitionDynamicPressure(void) { return topOfTransitionDynamicPressure; } 
     AP_Float &getTopOfAttitudeFeedbackDynamicPressure(void) { return topOfAttitudeFeedbackDynamicPressure; } 
@@ -367,8 +381,10 @@ private:
     AP_Float passthroughAngularAccelerationCommandGainPitch;
     AP_Float passthroughAngularAccelerationCommandGainYaw;
 
-    AP_Float motor12MaxThrust;
-    AP_Float motor3MaxThrust;
+   //AP_Float motor12MaxThrust;
+   // AP_Float motor3MaxThrust;
+    AP_Float motorLiftMaxThrust;
+    AP_Float motorPropulsionMaxThrust;
 
     AP_Float rollAttitudeErrorToRollRateGain;
     AP_Float pitchAttitudeErrorToPitchRateGain;
