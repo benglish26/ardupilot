@@ -409,7 +409,9 @@ void Plane::update_btol() {  //50Hz
 
 void Plane::initialize_btol(){
     hal.rcout->set_default_rate(50);
-    hal.rcout->set_freq(0xF, 400);  //for the first four channels?  0xF = 1111  Testing!  Works!  
+    //hal.rcout->set_freq(0xF, 400);  //for the first four channels?  0xF = 1111  Testing!  Works!  
+    hal.rcout->set_freq(0xFF, 400);  //for the first 8 channels 0xFF = 11111111
+
   //  hal.rcout->set_output_mode(CH6, MODE_PWM_DSHOT_300)
 
     //hal.rcout->set_freq(CH6, 400);
@@ -1410,14 +1412,14 @@ AP::logger().Write("BARO", "TimeUS,est_q,bVS,bALT",
         
     //calculate desired forces
     float desiredAccelerationZ = 0.0f;
-    float desiredAccelerationX = 0.0f;
+    //float desiredAccelerationX = 0.0f;
        // if(state.commandMode == 0) //manual tilt angle
        // {
             //calculate vector components based on tilt and thrust
            // desiredAccelerationZ = -1.0 * sinf(command.targetTiltAngle) * command.targetTiltAcceleration; //vertical component in body frame. (+Z = down)
             desiredAccelerationZ = -1.0 * command.targetTiltAcceleration; //vertical component in body frame. (+Z = down)
             
-            desiredAccelerationX =  0.0;//cosf(command.targetTiltAngle) * command.targetTiltAcceleration; //longitudinal component in body frame. (+X = forward)
+    //        desiredAccelerationX =  0.0;//cosf(command.targetTiltAngle) * command.targetTiltAcceleration; //longitudinal component in body frame. (+X = forward)
             
       //  }else{
       //      //take target accelerations already vectorized and use those.
@@ -1432,16 +1434,15 @@ AP::logger().Write("BARO", "TimeUS,est_q,bVS,bALT",
 
     //calculate effector mixing
 
-        float surfaceToMotorMixingRatio = 0.0f; //smaller = motors, larger = surfaces.
+       // float surfaceToMotorMixingRatio = 0.0f; //smaller = motors, larger = surfaces.
 
-        surfaceToMotorMixingRatio = getRangeRatio(dynamicPressure, EffectorMixingDynamicPressureBottom, EffectorMixingDynamicPressureTop);
+       // surfaceToMotorMixingRatio = getRangeRatio(dynamicPressure, EffectorMixingDynamicPressureBottom, EffectorMixingDynamicPressureTop);
 
        // float pitchMomentForSurfaces = 0.0f;
        // float rollMomentForSurfaces = 0.0f;
         float pitchMomentForMotors = 0.0f;
         float rollMomentForMotors = 0.0f;
         float yawMomentForMotors = 0.0f;
-s
        // if(surfaceToMotorMixingRatio < 0.0f) surfaceToMotorMixingRatio = 0.0f;
        // if(surfaceToMotorMixingRatio > 1.0f) surfaceToMotorMixingRatio = 1.0f;
 
@@ -1462,12 +1463,12 @@ s
 
         //Now calculate motors and tilts!
         //Calculate forward/aft motor thurst(force) distribution from the total body Z force desired and the desired pitching moment.
-        float totalForceUp = 0.0f; //backwards
+        //float totalForceUp = 0.0f; //backwards
         //float totalMomentForward = 0.0f; //backwards, but this is how I did the math, so lets start with this, as the arms work out this way if the x axis is used
         //float forceUpMotors1and2 = 0.0f;
         //float forceUpMotor3 = 0.0f;
 
-        totalForceUp = requiredForceZ * -1.0f; //-1.0 is converting from the +Z = down frame //could get rid of this, and fix when we calculate the tilt angle?
+       // totalForceUp = requiredForceZ * -1.0f; //-1.0 is converting from the +Z = down frame //could get rid of this, and fix when we calculate the tilt angle?
 
 
 
@@ -1483,15 +1484,25 @@ s
        // forceUpMotor3 = (distanceXFromCGMotors12 * totalForceUp - totalMomentForward) / (distanceXFromCGMotors12 - distanceXFromCGMotor3); //this appears to be working...don't know about direction/magnitude...
 
         //NOW CALCULATE DIFFERENT FORCES FOR THE ROLL CONTROLLER
-        float forceUpMotor1 = 0.0;
-        float forceUpMotor2 = 0.0;
-        float deltaForceUpStation12ForRoll = 0.0; //re-aranged so it would say "deltaForce" =)
+        //float deltaForceUpStation12ForRoll = 0.0; //re-aranged so it would say "deltaForce" =)
 
         float liftMotorThrustDemands[8] = {0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f};
 
-        //float zForceToMotorThrustMatrix[8] = {-0.125f,-0.125f,-0.125f,-0.125f,-0.125f,-0.125f,-0.125f,-0.125f};
+        float zForceToLiftMotorThrustMatrix[8] = {-0.125f,-0.125f,-0.125f,-0.125f,-0.125f,-0.125f,-0.125f,-0.125f};
+        float xMomentToLiftMotorThrustMatrix[8] = {0.434848f, 0.434848f, 0.176475f, 0.176475f, -0.176475f, -0.176475f, -0.434848f, -0.434848f};
+        float yMomentToLiftMotorThrustMatrix[8] = {-1.77168f, -0.590514f, 0.590514f, 1.77168f, 1.77168f, 0.590514f, -0.590514f, -1.77168f};
+        float zMomentToLiftMotorThrustMatrix[8] = {-0.0931148f, 0.156885f, -0.11206f, 0.13794f, -0.13794f, 0.11206f, -0.156885f, 0.0931148f};
 
+        for(int i = 0; i < 8; i++)
+        {
+            liftMotorThrustDemands[i] = liftMotorThrustDemands[i]
+             + zForceToLiftMotorThrustMatrix[i]*requiredForceZ
+             + xMomentToLiftMotorThrustMatrix[i]*desiredMomentX
+             + yMomentToLiftMotorThrustMatrix[i]*desiredMomentY
+             + zMomentToLiftMotorThrustMatrix[i]*desiredMomentZ
+            ;
 
+        }
 
 
         effectors.motor1Thrust = liftMotorThrustDemands[0];
