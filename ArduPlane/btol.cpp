@@ -1144,9 +1144,6 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         if(rollAttitudeToCompensateForLateralAcceleration < -automaticHoverRollTrimMaximumAngle) rollAttitudeToCompensateForLateralAcceleration = -automaticHoverRollTrimMaximumAngle;
         
         
-  
-        
-        
         hoverRollAttitudeSetpoint = hoverRollAttitudeSetpoint + rollAttitudeToCompensateForLateralAcceleration;
 
       AP::logger().Write("BHRT", "TimeUS,est_q,ratio,Ay,RollAtti,RollSetpoint",
