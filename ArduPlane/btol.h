@@ -314,7 +314,7 @@ public:
     int16_t calculateServoValueFromAngle(float desiredAngle, float minimumAngle, float maximumAngle, int16_t minimumPWM, int16_t maximumPWM);
     float calculateMotorThrustBasedOnTiltAngle(float attainedTiltAngle, float desiredForceForward, float desiredForceUp, float satisfactionAngleLow, float satisfactionAngleHigh); //use this function carefully to avoid div/0!
 
-    EffectorList calculateEffectorPositions(float dt);
+    EffectorList calculateEffectorOutputs(float dt);
 
     void updateSensorData(void);
     void updateAdhrsEstimate(void);

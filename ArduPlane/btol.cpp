@@ -302,7 +302,6 @@ void Plane::update_btol() {  //50Hz
     //AP_GROUPINFO("AzCMDmss",        17, BTOL_Controller, linearAccelerationZCommandGain,        30),
     float desiredUpAccelerationComponent = ((rcCommandInputThrottleStickForward + 1.0f) / 2.0f) * g2.btolController.getLinearAccelerationZCommandGain(); //this is the wrong direciton, of course!
 
-
     float desiredForwardAccelerationComponent = (rcCommandInputLeftSliderStickForward) * MAX_BODY_AXIS_POWERED_ACCELERATION_COMMAND_MS;
     //need protections
     
@@ -329,7 +328,6 @@ void Plane::update_btol() {  //50Hz
     g2.btolController.setDesiredPassthroughAngularAccelerationPitch(rcCommandInputPitchStickAft * g2.btolController.getPitchPassthroughAccelerationCommandGain());
     g2.btolController.setDesiredPassthroughAngularAccelerationRoll(rcCommandInputRollStickRight * g2.btolController.getRollPassthroughAccelerationCommandGain());
     g2.btolController.setDesiredPassthroughAngularAccelerationYaw(rcCommandInputYawStickRight * g2.btolController.getYawPassthroughAccelerationCommandGain()); //TODO: these are temporary gain placeholders.
-
 
 
     //Todo: this should be a state machine.  This is a bit hacky, setting it every cycle.
@@ -367,8 +365,6 @@ void Plane::update_btol() {  //50Hz
        // AP::logger().Write("BSYS", "TimeUS,Mode", "QI",
        //                                 AP_HAL::micros64(),
         //                                g2.btolController.getRegulatorModeState());
-
-
         // Reset the PID filters
        // g2.btolController.get_rate_roll_pid().reset_filter();
        // g2.btolController.get_rate_pitch_pid().reset_filter();
@@ -515,7 +511,7 @@ void Plane::btol_stabilize() {
 
     EffectorList effectorCommands;
     float deltaTimeSecondsForPID = ((float)dt_us)/1000000.0f;
-    effectorCommands = g2.btolController.calculateEffectorPositions(deltaTimeSecondsForPID); //PID_400HZ_DT); //this delta time is wrong, of course!  Should be dynamicly populated.
+    effectorCommands = g2.btolController.calculateEffectorOutputs(deltaTimeSecondsForPID); //PID_400HZ_DT); //this delta time is wrong, of course!  Should be dynamicly populated.
 
     //int16_t servoControlValueElevon1 = g2.btolController.calculateServoValueFromAngle(effectorCommands.elevon1Angle, AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MIN_ANGLE, AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MAX_ANGLE, AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MIN_ANGLE_PWM, AIRCRAFT_PROPERTIES_ELEVON1_SERVO_MAX_ANGLE_PWM);
     //int16_t servoControlValueElevon2 = g2.btolController.calculateServoValueFromAngle(effectorCommands.elevon2Angle, AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MIN_ANGLE, AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MAX_ANGLE, AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MIN_ANGLE_PWM, AIRCRAFT_PROPERTIES_ELEVON2_SERVO_MAX_ANGLE_PWM);
@@ -1094,13 +1090,10 @@ void BTOL_Controller::updateAdhrsEstimate(void)
 
 
 
-EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
+EffectorList BTOL_Controller::calculateEffectorOutputs(float dt)
 {
-
-
     updateSensorData();
     updateAdhrsEstimate();
-
 
     float dynamicPressure = getEstimatedDynamicPressure();
     //Add transition ratio.  Consider mutiplying q by 1/100 or acceleration by 10 and radians by 100
@@ -1114,13 +1107,12 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
                 (double)command.targetTiltAcceleration
                 );
 
-
-
     //Get the output moment from the regulator, depending on the control mode.
     float desiredMomentX = 0.0f;
     float desiredMomentY = 0.0f;
     float desiredMomentZ = 0.0f;
 
+    //Get the target rates from the pilot commands or stabilization system, depending on the control mode.
     float targetYawRate = 0.0f;
     float targetPitchRate = 0.0f;
     float targetRollRate = 0.0f;
@@ -1129,7 +1121,7 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
     {
       //  Attitude Command ...will be useful later...need to figure out how to get both!
 
-        float dynamicPressureRatio = getRangeRatio(dynamicPressure, 0.0f, getTopOfTransitionDynamicPressure());
+       /* float dynamicPressureRatio = getRangeRatio(dynamicPressure, 0.0f, getTopOfTransitionDynamicPressure());
         #define FORWARD_FLIGHT_ROLL_INNER_ANGLE 0.698132f //40 degrees
         #define FORWARD_FLIGHT_ROLL_OUTER_ANGLE 1.5708f   //90 degrees
         #define HOVER_FLIGHT_ROLL_ANGLE_OUTER 1.0f //57 degrees
@@ -1145,18 +1137,17 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         targetRollRate = command.targetRollRate + getAugmentedStabilityRatioWithinAngleRange(estimate.attitudeRoll, innerStabilizationAngleRoll, outerStabilizationAngleRoll) * getRollRateCommandGain();
         targetPitchRate = command.targetPitchRate + getAugmentedStabilityRatioWithinAngleRange(estimate.attitudePitch, innerStabilizationAnglePitch, outerStabilizationAnglePitch) * getPitchRateCommandGain();
         targetYawRate = command.targetYawRate; //can add auto coordination here.... 
-      
+      */
         //need regulator gains.
         //Blend in attitude control or fight the roll rate target?  
-        float rollAttitudeFeedbackRatio = 1.0f - getRangeRatio(dynamicPressure, 0.0f, getTopOfAttitudeFeedbackDynamicPressure());  //this should be scaled with dynamic pressure, not capped...but we'll start here.
-        float hoverRollAttitudeSetpoint = 0.0f;
+        //float rollAttitudeFeedbackRatio = 1.0f - getRangeRatio(dynamicPressure, 0.0f, getTopOfAttitudeFeedbackDynamicPressure());  //this should be scaled with dynamic pressure, not capped...but we'll start here.
+        //float hoverRollAttitudeSetpoint = 0.0f;
 
-        //add automatic hover roll trim here:
+        /*//add automatic hover roll trim here:
         float rollAttitudeToCompensateForLateralAcceleration = 0.0f;
 
         //calculate the automatic roll trim.
         rollAttitudeToCompensateForLateralAcceleration = -1.0f * asinf(estimate.bodyProperAccelerationY / 9.81);  //we could use the zaccleration here, but we know what it will be!, ALthough, in hover, that's a much better way to estimate thrust!
-
         //scale output for so that it only occurs at low dynamic pressures?
         float automaticHoverRollTrimStrengthRatio = 1.0f - getRangeRatio(dynamicPressure, 0.0f, automaticHoverRollTrimDynamicPressureMax);
         rollAttitudeToCompensateForLateralAcceleration =  rollAttitudeToCompensateForLateralAcceleration * automaticHoverRollTrimStrengthRatio;
@@ -1164,11 +1155,10 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         float automaticHoverRollTrimMaximumAngle = 10 * DEG_TO_RAD;
         if(rollAttitudeToCompensateForLateralAcceleration > automaticHoverRollTrimMaximumAngle) rollAttitudeToCompensateForLateralAcceleration = automaticHoverRollTrimMaximumAngle;
         if(rollAttitudeToCompensateForLateralAcceleration < -automaticHoverRollTrimMaximumAngle) rollAttitudeToCompensateForLateralAcceleration = -automaticHoverRollTrimMaximumAngle;
-        
-        
         hoverRollAttitudeSetpoint = hoverRollAttitudeSetpoint + rollAttitudeToCompensateForLateralAcceleration;
+        */
 
-      AP::logger().Write("BHRT", "TimeUS,est_q,ratio,Ay,RollAtti,RollSetpoint",
+      /*AP::logger().Write("BHRT", "TimeUS,est_q,ratio,Ay,RollAtti,RollSetpoint",
         "S-----", // units: seconds, any
         "F00000", // mult: 1e-6, 1e-2
         "Qfffff", // format: uint64_t, float
@@ -1179,19 +1169,22 @@ EffectorList BTOL_Controller::calculateEffectorPositions(float dt)
         (double)rollAttitudeToCompensateForLateralAcceleration,
         (double)hoverRollAttitudeSetpoint
         );
-
+        */
+        //rollAttitudeFeedbackRatio = 1.0f;
+        float rollAttitudeFeedbackRatio = 1.0f;// - getRangeRatio(dynamicPressure, 0.0f, getTopOfAttitudeFeedbackDynamicPressure());  //this should be scaled with dynamic pressure, not capped...but we'll start here.
+        float hoverRollAttitudeSetpoint = 0.0f;
 
         #define MAX_ROLL_ATTITUDE_HOVER 1.0f //57 degrees
         targetRollRate = command.targetRollRate + rollAttitudeFeedbackRatio * ((hoverRollAttitudeSetpoint - estimate.attitudeRoll)/MAX_ROLL_ATTITUDE_HOVER) * getRollRateCommandGain();
         
-        float pitchAttitudeFeedbackRatio = 1.0f - getRangeRatio(dynamicPressure, 0.0f, getTopOfAttitudeFeedbackDynamicPressure());  //this should be scaled with dynamic pressure, not capped...but we'll start here.
-        float hoverPitchAttitudeSetpoint = 0.0872665f; //5 degrees
+        //float pitchAttitudeFeedbackRatio = 1.0f - getRangeRatio(dynamicPressure, 0.0f, getTopOfAttitudeFeedbackDynamicPressure());  //this should be scaled with dynamic pressure, not capped...but we'll start here.
+        float pitchAttitudeFeedbackRatio = 1.0f;
+        float hoverPitchAttitudeSetpoint = 0.0f;
         hoverPitchAttitudeSetpoint = command.targetHoverNominalPitchAttitude; //so we can set the deck angle with a slider, or other input, etc....
         #define MAX_PITCH_ATTITUDE_HOVER 1.0f //57 degrees
         targetPitchRate = command.targetPitchRate + pitchAttitudeFeedbackRatio * ((hoverPitchAttitudeSetpoint - estimate.attitudePitch)/MAX_PITCH_ATTITUDE_HOVER) * getPitchRateCommandGain();
         
-
-
+        targetYawRate = command.targetYawRate; //can add auto coordination here.... 
     }
 
     if(state.regulatorMode == CONTROLLER_STATE_REGULATOR_MODE_RATE)
