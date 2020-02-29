@@ -174,7 +174,7 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
     AP_GROUPINFO("HOV_AC_THR",        14, BTOL_Controller, verticalAccelerationThresholdToConsiderAircraftInHover,        DEFAULT_VERTICAL_ACCELERATION_THRESHOLD_TO_CONSIDER_AIRCRAFT_IN_HOVER),
     AP_GROUPINFO("MASS_KG",        15, BTOL_Controller, aircraftMassInKg,        DEFAULT_AIRCRAFT_MASS_IN_KG),
     AP_GROUPINFO("CG_METERS",        16, BTOL_Controller, centerOfMassLocationX,        DEFAULT_AIRCRAFT_CENTER_OF_MASS_METERS),
-    AP_GROUPINFO("M3_TRQ_RATO",        17, BTOL_Controller, motor3ThrustToTorqueCoef,        DEFAULT_MOTOR3_THRUST_TO_TORQUE_COEF),
+    AP_GROUPINFO("AzCMDmss",        17, BTOL_Controller, linearAccelerationZCommandGain,        30),
     AP_GROUPINFO("Elvn_CL",        18, BTOL_Controller, elevonCoefLiftPerDeflection,        DEFAULT_ELEVON_COEF_OF_LIFT_PER_DEFLECTION),
     AP_GROUPINFO("Elvn_min_q",        19, BTOL_Controller, elevonControlMinimumDynamicPressure,        DEFAULT_ELEVON_MINIMUM_DYNAMIC_PRESSURE),
     AP_GROUPINFO("LowPassF_P",        20, BTOL_Controller, lowpassFilterCuttofFrequencyPitch,        DEFAULT_LOWPASS_FILTER_CUTOFF_FREQUENCY_PITCH),
@@ -297,7 +297,12 @@ void Plane::update_btol() {  //50Hz
 
     #define MAX_BODY_AXIS_POWERED_LIFT_ACCELERATION_COMMAND_MS 20.0
     #define MAX_BODY_AXIS_POWERED_ACCELERATION_COMMAND_MS 15.0
-    float desiredUpAccelerationComponent = ((rcCommandInputThrottleStickForward + 1.0f) / 2.0f) * MAX_BODY_AXIS_POWERED_LIFT_ACCELERATION_COMMAND_MS; //this is the wrong direciton, of course!
+    
+    //float desiredUpAccelerationComponent = ((rcCommandInputThrottleStickForward + 1.0f) / 2.0f) * MAX_BODY_AXIS_POWERED_LIFT_ACCELERATION_COMMAND_MS; //this is the wrong direciton, of course!
+    //AP_GROUPINFO("AzCMDmss",        17, BTOL_Controller, linearAccelerationZCommandGain,        30),
+    float desiredUpAccelerationComponent = ((rcCommandInputThrottleStickForward + 1.0f) / 2.0f) * g2.btolController.getLinearAccelerationZCommandGain(); //this is the wrong direciton, of course!
+
+
     float desiredForwardAccelerationComponent = (rcCommandInputLeftSliderStickForward) * MAX_BODY_AXIS_POWERED_ACCELERATION_COMMAND_MS;
     //need protections
     

@@ -346,6 +346,7 @@ public:
     AP_Float &getRollPassthroughAccelerationCommandGain(void) { return passthroughAngularAccelerationCommandGainRoll;} 
     AP_Float &getPitchPassthroughAccelerationCommandGain(void) { return passthroughAngularAccelerationCommandGainPitch; } 
     AP_Float &getYawPassthroughAccelerationCommandGain(void) { return passthroughAngularAccelerationCommandGainYaw; } 
+    AP_Float &getLinearAccelerationZCommandGain(void) { return linearAccelerationZCommandGain; } 
 
     //AP_Float &getMotor12MaxThrust(void) { return motor12MaxThrust; } 
     //AP_Float &getMotor3MaxThrust(void) { return motor3MaxThrust; } 
@@ -376,6 +377,7 @@ private:
     AP_Float yawRateCommandGain;
     AP_Float rollAttitudeCommandGain;
     AP_Float pitchAttitudeCommandGain;
+    AP_Float linearAccelerationZCommandGain;
 
     AP_Float passthroughAngularAccelerationCommandGainRoll;
     AP_Float passthroughAngularAccelerationCommandGainPitch;
