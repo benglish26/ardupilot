@@ -132,6 +132,12 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
     //AP_SUBGROUPINFO(_pid_rate_pitch, "B_PTCH_", 1, BTOL_Controller, AC_PID),
     //AP_SUBGROUPINFO(_pid_rate_yaw, "B_YAW_", 2, BTOL_Controller, AC_PID),
       
+
+AP_GROUPINFO("IzzYawKgMM",      0, BTOL_Controller, aircraftMomentOfInertiaYawInKgMM,       0.5f),
+AP_GROUPINFO("IyyPtcKgMM",      1, BTOL_Controller, aircraftMomentOfInertiaPitchInKgMM,       0.5f),
+AP_GROUPINFO("IxxRolKgMM",      2, BTOL_Controller, aircraftMomentOfInertiaRollInKgMM,       0.5f),
+
+
     // @Param: TCONST
 	// @DisplayName: Roll Time Constant
 	// @Description: Time constant in seconds from demanded to achieved roll angle. Most models respond well to 0.5. May be reduced for faster responses, but setting lower than a model can achieve will not help.
@@ -940,7 +946,7 @@ float BTOL_Controller::yawRateRegulator(float targetRate, float measuredRate, fl
     aeroRateDampingCoeficent = aeroDampingBaselineHoverYaw + aeroDampingVsTrueAirspeedCoefYaw * trueAirspeed;
 
     //get the torque demand.
-    torqueDemand = _regulatorYaw.getTorqueDemand(targetRate,measuredRate,deltaTime,proportionalCoef,integralCoef,derivitiveCoef,integratorMax, aeroRateDampingCoeficent,aircraftProperties.momentOfInertiaYaw);
+    torqueDemand = _regulatorYaw.getTorqueDemand(targetRate,measuredRate,deltaTime,proportionalCoef,integralCoef,derivitiveCoef,integratorMax,aeroRateDampingCoeficent,aircraftProperties.momentOfInertiaYaw);
     return torqueDemand;
 }
 
@@ -961,7 +967,7 @@ float BTOL_Controller::rollRateRegulator(float targetRate, float measuredRate, f
     aeroRateDampingCoeficent = aeroDampingBaselineHoverRoll + aeroDampingVsTrueAirspeedCoefRoll * trueAirspeed;
 
     //get the torque demand.
-    torqueDemand = _regulatorRoll.getTorqueDemand(targetRate,measuredRate,deltaTime,proportionalCoef,integralCoef,derivitiveCoef,integratorMax, aeroRateDampingCoeficent,aircraftProperties.momentOfInertiaRoll);
+    torqueDemand = _regulatorRoll.getTorqueDemand(targetRate,measuredRate,deltaTime,proportionalCoef,integralCoef,derivitiveCoef,integratorMax,aeroRateDampingCoeficent,aircraftProperties.momentOfInertiaRoll);
     return torqueDemand;
 }
 
@@ -982,7 +988,7 @@ float BTOL_Controller::pitchRateRegulator(float targetRate, float measuredRate, 
     aeroRateDampingCoeficent = aeroDampingBaselineHoverPitch + aeroDampingVsTrueAirspeedCoefPitch * trueAirspeed;
 
     //get the torque demand.
-    torqueDemand = _regulatorPitch.getTorqueDemand(targetRate,measuredRate,deltaTime,proportionalCoef,integralCoef,derivitiveCoef,integratorMax, aeroRateDampingCoeficent,aircraftProperties.momentOfInertiaPitch);
+    torqueDemand = _regulatorPitch.getTorqueDemand(targetRate,measuredRate,deltaTime,proportionalCoef,integralCoef,derivitiveCoef,integratorMax,aeroRateDampingCoeficent,aircraftProperties.momentOfInertiaPitch);
     return torqueDemand;
 }
 
@@ -1024,16 +1030,11 @@ void BTOL_Controller::updateSensorData(void)
 }
 void BTOL_Controller::updateAdhrsEstimate(void)
 {
-
-
     const AP_InertialSensor &_ins = AP::ins();
     
     Vector3f rawInitAccVec;
     rawInitAccVec = _ins.get_accel(); //I think this is wrong.  Needs an update function?  Should likely subscribe in the normal way...same as done with baro!
     //how are these acceleratons defined?  
-    
-
-
     estimate.attitudePitch = _ahrs.get_pitch();
     estimate.attitudeRoll = _ahrs.get_roll();
     estimate.bodyProperAccelerationX = rawInitAccVec.x;
@@ -1044,10 +1045,7 @@ void BTOL_Controller::updateAdhrsEstimate(void)
     estimate.rateRoll = _ahrs.get_gyro().x;
     estimate.rateYaw = _ahrs.get_gyro().z;
     estimate.dynamicPressure = 0.0f;
-
     rawInitAccVec = rawInitAccVec * 1.0f;  //to make compile warning go away.  (unused)
-
-
 
     AP::logger().Write("BEST", "TimeUS,q,Rx,Ry,Rz,P,R,Y,Ax,Ay,Az,Yre,AOA,AOS,Vgx,Vgy,init",
                 "S----------------", // units: seconds, any
@@ -1086,8 +1084,6 @@ void BTOL_Controller::updateAdhrsEstimate(void)
 //AOS
 
 }
-
-
 
 
 EffectorList BTOL_Controller::calculateEffectorOutputs(float dt)
@@ -1207,20 +1203,12 @@ EffectorList BTOL_Controller::calculateEffectorOutputs(float dt)
         desiredMomentY = pitchRateRegulator(targetPitchRate, estimate.ratePitch, dynamicPressure, sqrtf(dynamicPressure), dt);
         desiredMomentX = rollRateRegulator(targetRollRate, estimate.rateRoll, dynamicPressure, sqrtf(dynamicPressure), dt);
 
-
-
-
-
-
-
         //also can get earth frame acceleration vectors:
         //_ahrs.get_accel_ef();
 
-
-
         //https://github.com/ArduPilot/ardupilot/blob/master/libraries/AP_AHRS/AP_AHRS_DCM.cpp
 
-        AP_InertialSensor &_ins = AP::ins();
+        /*AP_InertialSensor &_ins = AP::ins();
 
         // Get body frame accel vector
         Vector3f initAccVec = _ins.get_accel();
@@ -1236,11 +1224,7 @@ EffectorList BTOL_Controller::calculateEffectorOutputs(float dt)
             _ins.update();
             initAccVec = _ins.get_accel();
         }
-
-
-
-
-
+        */
 
 //Log things such as vertical rate, attitude, ext.
 
@@ -1254,11 +1238,6 @@ AP::logger().Write("BARO", "TimeUS,est_q,bVS,bALT",
                 (double)_baro.get_climb_rate(),
                 (double)_baro.get_altitude()
                 );
-
-
-
-    
-       
 
     AP::logger().Write("BREP", "TimeUS,q,t,es,E,cP,cI,cD,P,I,D,rA,rT,cRD,ffT,rtT,vI,mI",
                 "S----------------", // units: seconds, any
@@ -1356,8 +1335,6 @@ AP::logger().Write("BARO", "TimeUS,est_q,bVS,bALT",
         desiredMomentY = pitchRateRegulator(command.targetPitchRate, _ahrs.get_gyro().y, dynamicPressure, sqrtf(dynamicPressure), dt);
         desiredMomentZ = get_rate_yaw_pid().update_all(command.targetYawRate,_ahrs.get_gyro().z, false) * aircraftProperties.momentOfInertiaYaw;
     }*/
-
-
 
     //lowpass filter the desired moments.
     static float filteredDesiredMomentX = 0.0;

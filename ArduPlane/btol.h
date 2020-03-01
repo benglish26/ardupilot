@@ -358,6 +358,10 @@ public:
     AP_Float &getVerticalAccelerationThresholdToConsiderAircraftInHover(void) { return verticalAccelerationThresholdToConsiderAircraftInHover; } 
     AP_Float &getCenterOfMassLocationX(void) { return centerOfMassLocationX; } 
     AP_Float &getAircraftMass(void) { return aircraftMassInKg; } 
+    AP_Float &getAircraftMomentOfInertiaInYaw(void) { return aircraftMomentOfInertiaYawInKgMM; } 
+    AP_Float &getAircraftMomentOfInertiaInPitch(void) { return aircraftMomentOfInertiaPitchInKgMM; } 
+    AP_Float &getAircraftMomentOfInertiaInRoll(void) { return aircraftMomentOfInertiaRollInKgMM; } 
+
     AP_Float &getBatteryVoltageCompensationCoeficent(void) { return BatteryVoltageCompensationCoeficent; } 
 
 
@@ -372,6 +376,13 @@ private:
    // AP_InertialSensor 
     const AP_Vehicle::FixedWing &_aparm;
     //AP_AutoTune::ATGains gains;
+    AP_Float aircraftMassInKg;
+    AP_Float aircraftMomentOfInertiaYawInKgMM;
+    AP_Float aircraftMomentOfInertiaPitchInKgMM;
+    AP_Float aircraftMomentOfInertiaRollInKgMM;
+
+
+
     AP_Float rollRateCommandGain;
     AP_Float pitchRateCommandGain;
     AP_Float yawRateCommandGain;
