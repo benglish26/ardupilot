@@ -973,6 +973,7 @@ void BTOL_Controller::updateSensorData(void)
 
     //log the values
 }
+
 void BTOL_Controller::updateAdhrsEstimate(void)
 {
     const AP_InertialSensor &_ins = AP::ins();
@@ -1018,8 +1019,6 @@ void BTOL_Controller::updateAdhrsEstimate(void)
 
 //_ahrs.get_gyro().z
 
-
-
 //Attiude
 //Rates
 //Accels
@@ -1029,7 +1028,6 @@ void BTOL_Controller::updateAdhrsEstimate(void)
 //AOS
 
 }
-
 
 EffectorList BTOL_Controller::calculateEffectorOutputs(float dt)
 {
@@ -1061,63 +1059,10 @@ EffectorList BTOL_Controller::calculateEffectorOutputs(float dt)
     if(state.regulatorMode == CONTROLLER_STATE_REGULATOR_MODE_ATTITUDE)
     {
       //  Attitude Command ...will be useful later...need to figure out how to get both!
-
-       /* float dynamicPressureRatio = getRangeRatio(dynamicPressure, 0.0f, getTopOfTransitionDynamicPressure());
-        #define FORWARD_FLIGHT_ROLL_INNER_ANGLE 0.698132f //40 degrees
-        #define FORWARD_FLIGHT_ROLL_OUTER_ANGLE 1.5708f   //90 degrees
-        #define HOVER_FLIGHT_ROLL_ANGLE_OUTER 1.0f //57 degrees
-        float innerStabilizationAngleRoll = dynamicPressureRatio * FORWARD_FLIGHT_ROLL_INNER_ANGLE;
-        float outerStabilizationAngleRoll = dynamicPressureRatio * (FORWARD_FLIGHT_ROLL_OUTER_ANGLE - HOVER_FLIGHT_ROLL_ANGLE_OUTER) + HOVER_FLIGHT_ROLL_ANGLE_OUTER;
-
-        #define FORWARD_FLIGHT_PITCH_INNER_ANGLE 0.698132f //40 degrees
-        #define FORWARD_FLIGHT_PITCH_OUTER_ANGLE 1.5708f //90 degrees
-        #define HOVER_FLIGHT_PITCH_ANGLE_OUTER 1.0f //57 degrees
-        float innerStabilizationAnglePitch = dynamicPressureRatio * FORWARD_FLIGHT_PITCH_INNER_ANGLE;
-        float outerStabilizationAnglePitch = dynamicPressureRatio * (FORWARD_FLIGHT_PITCH_OUTER_ANGLE - HOVER_FLIGHT_PITCH_ANGLE_OUTER) + HOVER_FLIGHT_PITCH_ANGLE_OUTER;
-
-        targetRollRate = command.targetRollRate + getAugmentedStabilityRatioWithinAngleRange(estimate.attitudeRoll, innerStabilizationAngleRoll, outerStabilizationAngleRoll) * getRollRateCommandGain();
-        targetPitchRate = command.targetPitchRate + getAugmentedStabilityRatioWithinAngleRange(estimate.attitudePitch, innerStabilizationAnglePitch, outerStabilizationAnglePitch) * getPitchRateCommandGain();
-        targetYawRate = command.targetYawRate; //can add auto coordination here.... 
-      */
-        //need regulator gains.
-        //Blend in attitude control or fight the roll rate target?  
-        //float rollAttitudeFeedbackRatio = 1.0f - getRangeRatio(dynamicPressure, 0.0f, getTopOfAttitudeFeedbackDynamicPressure());  //this should be scaled with dynamic pressure, not capped...but we'll start here.
-        //float hoverRollAttitudeSetpoint = 0.0f;
-
-        /*//add automatic hover roll trim here:
-        float rollAttitudeToCompensateForLateralAcceleration = 0.0f;
-
-        //calculate the automatic roll trim.
-        rollAttitudeToCompensateForLateralAcceleration = -1.0f * asinf(estimate.bodyProperAccelerationY / 9.81);  //we could use the zaccleration here, but we know what it will be!, ALthough, in hover, that's a much better way to estimate thrust!
-        //scale output for so that it only occurs at low dynamic pressures?
-        float automaticHoverRollTrimStrengthRatio = 1.0f - getRangeRatio(dynamicPressure, 0.0f, automaticHoverRollTrimDynamicPressureMax);
-        rollAttitudeToCompensateForLateralAcceleration =  rollAttitudeToCompensateForLateralAcceleration * automaticHoverRollTrimStrengthRatio;
-        //cap output
-        float automaticHoverRollTrimMaximumAngle = 10 * DEG_TO_RAD;
-        if(rollAttitudeToCompensateForLateralAcceleration > automaticHoverRollTrimMaximumAngle) rollAttitudeToCompensateForLateralAcceleration = automaticHoverRollTrimMaximumAngle;
-        if(rollAttitudeToCompensateForLateralAcceleration < -automaticHoverRollTrimMaximumAngle) rollAttitudeToCompensateForLateralAcceleration = -automaticHoverRollTrimMaximumAngle;
-        hoverRollAttitudeSetpoint = hoverRollAttitudeSetpoint + rollAttitudeToCompensateForLateralAcceleration;
-        */
-
-      /*AP::logger().Write("BHRT", "TimeUS,est_q,ratio,Ay,RollAtti,RollSetpoint",
-        "S-----", // units: seconds, any
-        "F00000", // mult: 1e-6, 1e-2
-        "Qfffff", // format: uint64_t, float
-        AP_HAL::micros64(),
-        (double)dynamicPressure,
-        (double)automaticHoverRollTrimStrengthRatio,
-        (double)estimate.bodyProperAccelerationY,
-        (double)rollAttitudeToCompensateForLateralAcceleration,
-        (double)hoverRollAttitudeSetpoint
-        );
-        */
-        //rollAttitudeFeedbackRatio = 1.0f;
         float rollAttitudeFeedbackRatio = 1.0f;// - getRangeRatio(dynamicPressure, 0.0f, getTopOfAttitudeFeedbackDynamicPressure());  //this should be scaled with dynamic pressure, not capped...but we'll start here.
         float hoverRollAttitudeSetpoint = 0.0f;
-
         #define MAX_ROLL_ATTITUDE_HOVER 1.0f //57 degrees
         targetRollRate = command.targetRollRate + rollAttitudeFeedbackRatio * ((hoverRollAttitudeSetpoint - estimate.attitudeRoll)/MAX_ROLL_ATTITUDE_HOVER) * getRollRateCommandGain();
-        
         //float pitchAttitudeFeedbackRatio = 1.0f - getRangeRatio(dynamicPressure, 0.0f, getTopOfAttitudeFeedbackDynamicPressure());  //this should be scaled with dynamic pressure, not capped...but we'll start here.
         float pitchAttitudeFeedbackRatio = 1.0f;
         float hoverPitchAttitudeSetpoint = 0.0f;
@@ -1147,33 +1092,9 @@ EffectorList BTOL_Controller::calculateEffectorOutputs(float dt)
         desiredMomentZ = yawRateRegulator(targetYawRate, estimate.rateYaw, dynamicPressure, sqrtf(dynamicPressure), dt);
         desiredMomentY = pitchRateRegulator(targetPitchRate, estimate.ratePitch, dynamicPressure, sqrtf(dynamicPressure), dt);
         desiredMomentX = rollRateRegulator(targetRollRate, estimate.rateRoll, dynamicPressure, sqrtf(dynamicPressure), dt);
-
-        //also can get earth frame acceleration vectors:
-        //_ahrs.get_accel_ef();
-
-        //https://github.com/ArduPilot/ardupilot/blob/master/libraries/AP_AHRS/AP_AHRS_DCM.cpp
-
-        /*AP_InertialSensor &_ins = AP::ins();
-
-        // Get body frame accel vector
-        Vector3f initAccVec = _ins.get_accel();
-        uint8_t counter = 0;
-
-        _ins.get_accel();
-        _ins.get_gyro();
-
-
-        // the first vector may be invalid as the filter starts up
-        while ((initAccVec.length() < 9.0f || initAccVec.length() > 11) && counter++ < 20) {
-            _ins.wait_for_sample();
-            _ins.update();
-            initAccVec = _ins.get_accel();
-        }
-        */
-
-//Log things such as vertical rate, attitude, ext.
-
-AP::logger().Write("BARO", "TimeUS,est_q,bVS,bALT",
+    }
+    //Log things such as vertical rate, attitude, ext.
+    AP::logger().Write("BARO", "TimeUS,est_q,bVS,bALT",
                 "S---", // units: seconds, any
                 "F000", // mult: 1e-6, 1e-2
                 "Qfff", // format: uint64_t, float
@@ -1255,8 +1176,6 @@ AP::logger().Write("BARO", "TimeUS,est_q,bVS,bALT",
                 (double)_regulatorYaw._lastRegulatorIntegralValue,
                 (double)_regulatorYaw._lastRegulatorIntegralValueMax
                 );
-        
-    }
 
     //lowpass filter the desired moments.
     static float filteredDesiredMomentX = 0.0;
@@ -1265,7 +1184,6 @@ AP::logger().Write("BARO", "TimeUS,est_q,bVS,bALT",
     filteredDesiredMomentY = filteredDesiredMomentY + getFilterAlpha(lowpassFilterCuttofFrequencyPitch, dt)  * (desiredMomentY - filteredDesiredMomentY);
     static float filteredDesiredMomentZ = 0.0;
     filteredDesiredMomentZ = filteredDesiredMomentZ + getFilterAlpha(lowpassFilterCuttofFrequencyYaw, dt)  * (desiredMomentZ - filteredDesiredMomentZ);
-
 
     AP::logger().Write("BFIL", "TimeUS,dt,mX,mfX,cfX,mY,mfY,cfY,mZ,mfZ,cfZ",
                 "S----------", // units: seconds, rad/sec
@@ -1290,26 +1208,8 @@ AP::logger().Write("BARO", "TimeUS,est_q,bVS,bALT",
     desiredMomentY = filteredDesiredMomentY;
     desiredMomentZ = filteredDesiredMomentZ;
 
-
-    //Log the PID values.
-    //not sure what to put in the identifier enum  just going to try using the default ones...because the defaults should't be running, because I disabled them.
-   // AP::logger().Write_PID(LOG_PIDR_MSG, get_rate_roll_pid().get_pid_info());
-   // AP::logger().Write_PID(LOG_PIDP_MSG, get_rate_pitch_pid().get_pid_info());
-   // AP::logger().Write_PID(LOG_PIDY_MSG, get_rate_yaw_pid().get_pid_info());
-
-
-
-        
-
-    //add the torque from motor3 (assuming motors 1 and 2 cancel out!)
-    float estimatedNetMotorTorqueToCancelOut = 0.0;
-    estimatedNetMotorTorqueToCancelOut = effectors.motor3Thrust * motor3ThrustToTorqueCoef;
-    desiredMomentZ = desiredMomentZ - estimatedNetMotorTorqueToCancelOut;
-
-        
     //calculate desired forces
-    float desiredAccelerationZ = 0.0f;
-          desiredAccelerationZ = command.targetAccelerationZ;
+    float desiredAccelerationZ = command.targetAccelerationZ;
     float requiredForceZ = desiredAccelerationZ * getAircraftMass();//aircraftProperties.totalMass; //Newtons
 
     //calculate effector outputs
@@ -1334,6 +1234,7 @@ AP::logger().Write("BARO", "TimeUS,est_q,bVS,bALT",
         float yMomentToLiftMotorThrustMatrix[8] = {-1.77168f, -0.590514f, 0.590514f, 1.77168f, 1.77168f, 0.590514f, -0.590514f, -1.77168f};
         float zMomentToLiftMotorThrustMatrix[8] = {-0.0931148f, 0.156885f, -0.11206f, 0.13794f, -0.13794f, 0.11206f, -0.156885f, 0.0931148f};
 
+        //calculate individual motor thurst demands.
         for(int i = 0; i < 8; i++)
         {
             liftMotorThrustDemands[i] = liftMotorThrustDemands[i]
