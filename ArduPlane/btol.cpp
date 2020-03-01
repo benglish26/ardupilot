@@ -407,8 +407,6 @@ void Plane::initialize_btol(){
      //   hal.rcout->set_default_rate(50);
    // hal.rcout->set_output_mode(CH_1, 
    hal.console->printf("initialize_btol\n");
-
-   
 }
 
  //TODO: Not actually running at 400!  Running at 50Hz....Need to fix!  Presently running at 400Hz.  See ArduPlane.cpp :   SCHED_TASK(btol_stabilize,         400,   200),  //blake added.
@@ -1211,6 +1209,9 @@ EffectorList BTOL_Controller::calculateEffectorOutputs(float dt)
     //calculate desired forces
     float desiredAccelerationZ = command.targetAccelerationZ;
     float requiredForceZ = desiredAccelerationZ * getAircraftMass();//aircraftProperties.totalMass; //Newtons
+    
+    float desiredAccelerationX = command.targetAccelerationX;
+    float requiredForceX = desiredAccelerationX * getAircraftMass();
 
     //calculate effector outputs
 
@@ -1243,7 +1244,6 @@ EffectorList BTOL_Controller::calculateEffectorOutputs(float dt)
              + yMomentToLiftMotorThrustMatrix[i]*desiredMomentY
              + zMomentToLiftMotorThrustMatrix[i]*desiredMomentZ
             ;
-
         }
 
         effectors.motor1Thrust = liftMotorThrustDemands[0];
@@ -1254,9 +1254,8 @@ EffectorList BTOL_Controller::calculateEffectorOutputs(float dt)
         effectors.motor6Thrust = liftMotorThrustDemands[5];
         effectors.motor7Thrust = liftMotorThrustDemands[6];
         effectors.motor8Thrust = liftMotorThrustDemands[7];
-        effectors.motor9Thrust = 0.0f;
+        effectors.motor9Thrust = requiredForceX;
         
-
     return effectors;
 }
 
