@@ -335,9 +335,6 @@ public:
    // AP_Float &kFF(void) { return testValue4; }
 
 
-
-    AP_Float &getTiltCommandMappingPolarity(void) { return manualTiltCommandMappingPolarity; } 
-
     AP_Float &getRollRateCommandGain(void) { return rollRateCommandGain; } 
     AP_Float &getPitchRateCommandGain(void) { return pitchRateCommandGain; } 
     AP_Float &getYawRateCommandGain(void) { return yawRateCommandGain; } 
@@ -363,6 +360,7 @@ public:
     AP_Float &getAircraftMomentOfInertiaInRoll(void) { return aircraftMomentOfInertiaRollInKgMM; } 
 
     AP_Float &getBatteryVoltageCompensationCoeficent(void) { return BatteryVoltageCompensationCoeficent; } 
+    AP_Float &getOverrideDynamicPressureEstimateToThisValueIfPosititive(void) { return overrideDynamicPressureEstimateToThisValueIfPosititive; } 
 
 
     // pid accessors
@@ -381,7 +379,7 @@ private:
     AP_Float aircraftMomentOfInertiaPitchInKgMM;
     AP_Float aircraftMomentOfInertiaRollInKgMM;
 
-
+    AP_Float overrideDynamicPressureEstimateToThisValueIfPosititive;
 
     AP_Float rollRateCommandGain;
     AP_Float pitchRateCommandGain;
@@ -401,14 +399,13 @@ private:
 
     AP_Float rollAttitudeErrorToRollRateGain;
     AP_Float pitchAttitudeErrorToPitchRateGain;
-    AP_Float manualTiltCommandMappingPolarity;
     AP_Float topOfTransitionDynamicPressure;
     AP_Float verticalAccelerationThresholdToConsiderAircraftInHover;
-    AP_Float aircraftMassInKg;
-    AP_Float forwardMotorMaxThrust;
-    AP_Float aftMotorMaxThrust;
+    //AP_Float forwardMotorMaxThrust;
+    //AP_Float aftMotorMaxThrust;
     AP_Float centerOfMassLocationX; //in Meters
-    AP_Float motor3ThrustToTorqueCoef; //N to NM
+    AP_Float motor3ThrustToTorqueCoef; //N to NM  //for delta vtol
+
     AP_Float elevonCoefLiftPerDeflection;
     AP_Float elevonControlMinimumDynamicPressure; //Pa
     AP_Float lowpassFilterCuttofFrequencyPitch; //Hz

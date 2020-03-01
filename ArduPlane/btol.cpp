@@ -57,7 +57,6 @@ extern const AP_HAL::HAL& hal;
 #define MOTOR_LIFT_DEFAULT_MAX_THRUST_N 16.671305f//7.0f//8.0
 #define MOTOR_PROPULSION_DEFAULT_MAX_THRUST_N 16.671305f//3.0f
 
-
 #define MOTOR_CONTROL_MIN_VALUE 1000
 #define MOTOR_CONTROL_MAX_VALUE 2000
 #define MOTOR_CONTROL_RANGE (MOTOR_CONTROL_MAX_VALUE-MOTOR_CONTROL_MIN_VALUE)
@@ -75,9 +74,6 @@ extern const AP_HAL::HAL& hal;
 #define DEFAULT_LOWPASS_FILTER_CUTOFF_FREQUENCY_ROLL 0.0f
 #define DEFAULT_LOWPASS_FILTER_CUTOFF_FREQUENCY_YAW 0.0f
 
-
-
-
 #define DEFAULT_AERO_DAMPING_ROLL_VS_TRUE_AIRSPEED_COEF 0.0f
 #define DEFAULT_AERO_DAMPING_PITCH_VS_TRUE_AIRSPEED_COEF 0.0f
 #define DEFAULT_AERO_DAMPING_YAW_VS_TRUE_AIRSPEED_COEF 0.0f
@@ -92,7 +88,6 @@ extern const AP_HAL::HAL& hal;
 #define DEFAULT_I_TERM_HOVER_FORWARD_FLIGHT_PITCH 0.0f
 #define DEFAULT_D_TERM_HOVER_PITCH 0.0f
 #define DEFAULT_D_TERM_HOVER_FORWARD_FLIGHT_PITCH 0.0f
-
 
 #define DEFAULT_I_TERM_MAX_HOVER_PITCH 0.0f
 #define DEFAULT_I_TERM_MAX_FORWARD_FLIGHT_PITCH 0.0f
@@ -126,53 +121,23 @@ extern const AP_HAL::HAL& hal;
 
 const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
 	    // parameters from parent vehicle
-
-
     //AP_SUBGROUPINFO(_pid_rate_roll, "B_ROLL_", 0, BTOL_Controller, AC_PID),
     //AP_SUBGROUPINFO(_pid_rate_pitch, "B_PTCH_", 1, BTOL_Controller, AC_PID),
     //AP_SUBGROUPINFO(_pid_rate_yaw, "B_YAW_", 2, BTOL_Controller, AC_PID),
-      
 
-AP_GROUPINFO("IzzYawKgMM",      0, BTOL_Controller, aircraftMomentOfInertiaYawInKgMM,       0.5f),
-AP_GROUPINFO("IyyPtcKgMM",      1, BTOL_Controller, aircraftMomentOfInertiaPitchInKgMM,       0.5f),
-AP_GROUPINFO("IxxRolKgMM",      2, BTOL_Controller, aircraftMomentOfInertiaRollInKgMM,       0.5f),
+    AP_GROUPINFO("IzzYawKgMM",      0, BTOL_Controller, aircraftMomentOfInertiaYawInKgMM,       0.02f),
+    AP_GROUPINFO("IyyPtcKgMM",      1, BTOL_Controller, aircraftMomentOfInertiaPitchInKgMM,       0.02f),
+    AP_GROUPINFO("IxxRolKgMM",      2, BTOL_Controller, aircraftMomentOfInertiaRollInKgMM,       0.02f),
 
-
-    // @Param: TCONST
-	// @DisplayName: Roll Time Constant
-	// @Description: Time constant in seconds from demanded to achieved roll angle. Most models respond well to 0.5. May be reduced for faster responses, but setting lower than a model can achieve will not help.
-	// @Range: 0.4 1.0
-	// @Units: s
-	// @Increment: 0.1
-	// @User: Advanced
 	AP_GROUPINFO("RRATECMDG",      3, BTOL_Controller, rollRateCommandGain,       0.5f),
-
-	// @Param: P
-	// @DisplayName: Proportional Gain
-	// @Description: Proportional gain from roll angle demands to ailerons. Higher values allow more servo response but can cause oscillations. Automatically set and adjusted by AUTOTUNE mode.
-	// @Range: 0.1 4.0
-	// @Increment: 0.1
-	// @User: User
 	AP_GROUPINFO("PRATECMDG",        4, BTOL_Controller, pitchRateCommandGain,        0.5f),
-
-	// @Param: D
-	// @DisplayName: Damping Gain
-	// @Description: Damping gain from roll acceleration to ailerons. Higher values reduce rolling in turbulence, but can cause oscillations. Automatically set and adjusted by AUTOTUNE mode.
-	// @Range: 0 0.2
-	// @Increment: 0.01
-	// @User: User
 	AP_GROUPINFO("YRATECMDG",        5, BTOL_Controller, yawRateCommandGain,        0.5f),
 
-	// @Param: I
-	// @DisplayName: Integrator Gain
-	// @Description: Integrator gain from long-term roll angle offsets to ailerons. Higher values "trim" out offsets faster but can cause oscillations. Automatically set and adjusted by AUTOTUNE mode.
-	// @Range: 0 1.0
-	// @Increment: 0.05
-	// @User: User
 	AP_GROUPINFO("RATTICMDG",        6, BTOL_Controller, rollAttitudeCommandGain,        0.5f),
-    AP_GROUPINFO("ROLL_ATR",      7, BTOL_Controller, rollAttitudeErrorToRollRateGain,       1.0f), //attitude error to rate gain.
-    AP_GROUPINFO("PTCH_ATR",      8, BTOL_Controller, pitchAttitudeErrorToPitchRateGain,       1.0f),
-    AP_GROUPINFO("MTV_TLT_DIR",      9, BTOL_Controller, manualTiltCommandMappingPolarity,       1.0f),
+
+    AP_GROUPINFO("R_AttiToRat",      7, BTOL_Controller, rollAttitudeErrorToRollRateGain,       1.0f), //attitude error to rate gain.
+    AP_GROUPINFO("P_AttiToRat",      8, BTOL_Controller, pitchAttitudeErrorToPitchRateGain,       1.0f),
+    AP_GROUPINFO("Q_Override",      9, BTOL_Controller, overrideDynamicPressureEstimateToThisValueIfPosititive,       -1.0f),
     AP_GROUPINFO("PATTICMDG",        10, BTOL_Controller, pitchAttitudeCommandGain,        0.5f),
     AP_GROUPINFO("MLFT_MXTHR",        11, BTOL_Controller, motorLiftMaxThrust,        MOTOR_LIFT_DEFAULT_MAX_THRUST_N),
     AP_GROUPINFO("MPRO_MXTHR",        12, BTOL_Controller, motorPropulsionMaxThrust,        MOTOR_PROPULSION_DEFAULT_MAX_THRUST_N),
@@ -212,7 +177,6 @@ AP_GROUPINFO("IxxRolKgMM",      2, BTOL_Controller, aircraftMomentOfInertiaRollI
     AP_GROUPINFO("Y_D_Hov",        42, BTOL_Controller, YawRegulatorDtermHover,               DEFAULT_D_TERM_HOVER_YAW),
     AP_GROUPINFO("Y_D_FF",        43, BTOL_Controller, YawRegulatorDtermForwardFlight,        DEFAULT_D_TERM_HOVER_FORWARD_FLIGHT_YAW),
 
-
     AP_GROUPINFO("R_CMDG_PT",        44, BTOL_Controller, passthroughAngularAccelerationCommandGainRoll,        DEFAULT_COMMAND_GAIN_PASSTHROUGH_ACCELERATION_ROLL),
     AP_GROUPINFO("P_CMDG_PT",        45, BTOL_Controller, passthroughAngularAccelerationCommandGainPitch,        DEFAULT_COMMAND_GAIN_PASSTHROUGH_ACCELERATION_PITCH),
     AP_GROUPINFO("Y_CMDG_PT",        46, BTOL_Controller, passthroughAngularAccelerationCommandGainYaw,        DEFAULT_COMMAND_GAIN_PASSTHROUGH_ACCELERATION_YAW),
@@ -237,13 +201,10 @@ AP_GROUPINFO("IxxRolKgMM",      2, BTOL_Controller, aircraftMomentOfInertiaRollI
     AP_GROUPINFO("MixBotQ",        60, BTOL_Controller, EffectorMixingDynamicPressureBottom,        50),
     AP_GROUPINFO("EleOvrflRAT",        61, BTOL_Controller, ElevonResidualOverflowRatio,        1.0),
     AP_GROUPINFO("AttiStbTopQ",        62, BTOL_Controller, topOfAttitudeFeedbackDynamicPressure,        100),
-
-    //AP_GROUPINFO("H_RTrimMaxA",        63, BTOL_Controller, automaticHoverRollTrimMaximumAngle,        0.174533),
     AP_GROUPINFO("H_RTrimTopQ",        63, BTOL_Controller, automaticHoverRollTrimDynamicPressureMax,        20),
 
     //I think there may be an issue with more than 64 parameters ie: if there are 63, that's the max.  No 64!  Yep.  It's an issue!
-
-//Make sure that the number is progressed!
+    //Make sure that the number is progressed!
 	AP_GROUPEND
 };
 
@@ -258,10 +219,6 @@ void Plane::update_btol() {  //50Hz
 		dt_ms = 0;  //presently this is being logged as 20, which means we are running at 50Hz
 	}
 	_last_t_ms = tnow_ms;
-
-
-
-
 
    float rcCommandInputPitchStickAft = 0;
    float rcCommandInputRollStickRight = 0;
@@ -279,7 +236,6 @@ void Plane::update_btol() {  //50Hz
     rcCommandInputLeftSliderStickForward = constrain_float( ((float)hal.rcin->read(RC_CHANNEL_NUMBER_FOR_LEFT_SLIDER_STICK) - RC_CHANNEL_INPUT_CENTER_VALUE)/RC_CHANNEL_INPUT_HALF_RANGE, -1.0, 1.0); 
     rcCommandInputRightSliderStickForward = constrain_float( ((float)hal.rcin->read(RC_CHANNEL_NUMBER_FOR_RIGHT_SLIDER_STICK) - RC_CHANNEL_INPUT_CENTER_VALUE)/RC_CHANNEL_INPUT_HALF_RANGE, -1.0, 1.0); 
 
-
     AP::logger().Write("B_RC", "TimeUS,dt_ms,P,R,Y,T,LS,RS",
                    "SS------", // units: seconds, rad/sec
                    "F0000000", // mult: 1e-6, 1e-2
@@ -293,7 +249,6 @@ void Plane::update_btol() {  //50Hz
                    (double)rcCommandInputLeftSliderStickForward,
                    (double)rcCommandInputRightSliderStickForward
                    );
-
 
     float targetHoverPitchAttitude = 0.0f;
     #define HOVER_TARGET_PITCH_NOMINAL_ATTITUDE 0.0872665f //5 deg
@@ -315,7 +270,7 @@ void Plane::update_btol() {  //50Hz
     g2.btolController.setDesiredAccelerationBodyX(desiredForwardAccelerationComponent);  //this (of course) needs work.
 
     float mtv_direct_command_tilt_angle = 0.0;
-    mtv_direct_command_tilt_angle = MTV_MIN_COMMANDABLE_TILT_ANGLE_IN_RADIANS + ((MTV_MAX_COMMANDABLE_TILT_ANGLE_IN_RADIANS-MTV_MIN_COMMANDABLE_TILT_ANGLE_IN_RADIANS) * ((g2.btolController.getTiltCommandMappingPolarity() * rcCommandInputLeftSliderStickForward + 1.0f) / 2.0f));
+    mtv_direct_command_tilt_angle = MTV_MIN_COMMANDABLE_TILT_ANGLE_IN_RADIANS + ((MTV_MAX_COMMANDABLE_TILT_ANGLE_IN_RADIANS-MTV_MIN_COMMANDABLE_TILT_ANGLE_IN_RADIANS) * ((rcCommandInputLeftSliderStickForward + 1.0f) / 2.0f));
     float mtv_direct_command_tilt_acceleration = 0.0;
     mtv_direct_command_tilt_acceleration = MTV_MIN_COMMANDABLE_TILT_ACCELERATION_IN_MSS + ((MTV_MAX_COMMANDABLE_TILT_ACCELERATION_IN_MSS-MTV_MIN_COMMANDABLE_TILT_ACCELERATION_IN_MSS) * ((rcCommandInputThrottleStickForward + 1.0f) / 2.0f));
    
@@ -432,8 +387,6 @@ void Plane::initialize_btol(){
     hal.rcout->enable_ch(CH_7);
     hal.rcout->enable_ch(CH_8);
 
-
-
         /*
       output modes. Allows for support of PWM, oneshot and dshot 
      */
@@ -480,24 +433,6 @@ void Plane::btol_stabilize() {
 	}
 	_last_t_us = tnow_us;
 
-
-
-    /*uint32_t now = AP_HAL::millis();
-    if (now - last_stabilize_ms > 2000) {
-        // if we haven't run the rate controllers for 2 seconds then
-        // reset the integrators
-       // rollController.reset_I();
-       // pitchController.reset_I();
-       // yawController.reset_I();
-
-        // and reset steering controls
-       // steer_state.locked_course = false;
-       // steer_state.locked_course_err = 0;
-    }
-        last_stabilize_ms = now;
-*/
-
-
     static int16_t deltaAmount = 0;
     #define SERVO_CONTROL_VALUE_1_HALF_WIDTH 500
     #define SERVO_CONTROL_CENTER_VALUE 1500
@@ -512,7 +447,6 @@ void Plane::btol_stabilize() {
     }else if(deltaAmount < -SERVO_CONTROL_VALUE_1_HALF_WIDTH){
         deltaStep = DELTA_VALUE_PER_TIMESTEP;
     }
-
     //int16_t servoControlValue5 = SERVO_CONTROL_CENTER_VALUE;// + constrain_int16(int16_t(rcCommandInputPitchStickAft*500), -500, 500);  //works (float)
 
     EffectorList effectorCommands;
@@ -534,6 +468,7 @@ void Plane::btol_stabilize() {
     float batteryVoltageRatio = (battery.voltage() / THREE_CELL_BATTERY_VOLTAGE_FULL) * g2.btolController.getBatteryVoltageCompensationCoeficent();
     if(batteryVoltageRatio > 1.0f) batteryVoltageRatio = 1.0f;
     if(batteryVoltageRatio < 0.5f) batteryVoltageRatio = 0.5f; //constrain value
+    batteryVoltageRatio = 1.0f; //TODO...put this in here for dev reasions.
 
     int16_t servoControlValueMotor1 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor1Thrust / g2.btolController.getLiftMotorMaxThrust()*batteryVoltageRatio) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE); //this needs to be scaled and offset correctly TODO
     int16_t servoControlValueMotor2 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor2Thrust / g2.btolController.getLiftMotorMaxThrust()*batteryVoltageRatio)* MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);
@@ -544,7 +479,6 @@ void Plane::btol_stabilize() {
     int16_t servoControlValueMotor7 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor7Thrust / g2.btolController.getLiftMotorMaxThrust()*batteryVoltageRatio) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE); //this needs to be scaled and offset correctly TODO
     int16_t servoControlValueMotor8 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor8Thrust / g2.btolController.getLiftMotorMaxThrust()*batteryVoltageRatio)* MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);
     int16_t servoControlValueMotor9 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor9Thrust / g2.btolController.getPropulsionMotorMaxThrust()*batteryVoltageRatio) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);  //isn't working.  Is stuck at 2000.
-
 
     //int16_t servoControlValueMotor1 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor1Thrust / g2.btolController.getMotor12MaxThrust()) * MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE); //this needs to be scaled and offset correctly TODO
     //int16_t servoControlValueMotor2 = MOTOR_CONTROL_MIN_VALUE + constrain_int16(int16_t((effectorCommands.motor2Thrust / g2.btolController.getMotor12MaxThrust())* MOTOR_CONTROL_RANGE), 0, MOTOR_CONTROL_RANGE);
@@ -641,9 +575,6 @@ AP::logger().Write("BBAT", "TimeUS,v,v_rest,%",
                    (double)battery.voltage_resting_estimate(),
                    (double)battery.capacity_remaining_pct()
                     );
-
-
-
     functionTime_us = AP_HAL::micros() - tnow_us; //this way we include the time it takes to log.
 }
 
@@ -669,6 +600,11 @@ float BTOL_Controller::getEstimatedDynamicPressure(void)
 
     //TODO: filter this!!!
 
+    //If the override value is negative, then do the 
+    if(!is_negative(getOverrideDynamicPressureEstimateToThisValueIfPosititive()))
+    {
+        estimatedDynamicPressure = getOverrideDynamicPressureEstimateToThisValueIfPosititive();
+    }
     return estimatedDynamicPressure;
 }
 
@@ -945,8 +881,11 @@ float BTOL_Controller::yawRateRegulator(float targetRate, float measuredRate, fl
     float aeroRateDampingCoeficent = 0.0f; //this will be a negative term.
     aeroRateDampingCoeficent = aeroDampingBaselineHoverYaw + aeroDampingVsTrueAirspeedCoefYaw * trueAirspeed;
 
+    //float momentOfInertia = aircraftProperties.momentOfInertiaYaw;
+    float momentOfInertia = getAircraftMomentOfInertiaInYaw();
+
     //get the torque demand.
-    torqueDemand = _regulatorYaw.getTorqueDemand(targetRate,measuredRate,deltaTime,proportionalCoef,integralCoef,derivitiveCoef,integratorMax,aeroRateDampingCoeficent,aircraftProperties.momentOfInertiaYaw);
+    torqueDemand = _regulatorYaw.getTorqueDemand(targetRate,measuredRate,deltaTime,proportionalCoef,integralCoef,derivitiveCoef,integratorMax,aeroRateDampingCoeficent,momentOfInertia);
     return torqueDemand;
 }
 
@@ -966,8 +905,11 @@ float BTOL_Controller::rollRateRegulator(float targetRate, float measuredRate, f
     float aeroRateDampingCoeficent = 0.0f; //this will be a negative term.
     aeroRateDampingCoeficent = aeroDampingBaselineHoverRoll + aeroDampingVsTrueAirspeedCoefRoll * trueAirspeed;
 
+    //float momentOfInertia = aircraftProperties.momentOfInertiaRoll;
+    float momentOfInertia = getAircraftMomentOfInertiaInRoll();
+
     //get the torque demand.
-    torqueDemand = _regulatorRoll.getTorqueDemand(targetRate,measuredRate,deltaTime,proportionalCoef,integralCoef,derivitiveCoef,integratorMax,aeroRateDampingCoeficent,aircraftProperties.momentOfInertiaRoll);
+    torqueDemand = _regulatorRoll.getTorqueDemand(targetRate,measuredRate,deltaTime,proportionalCoef,integralCoef,derivitiveCoef,integratorMax,aeroRateDampingCoeficent,momentOfInertia);
     return torqueDemand;
 }
 
@@ -987,8 +929,11 @@ float BTOL_Controller::pitchRateRegulator(float targetRate, float measuredRate, 
     float aeroRateDampingCoeficent = 0.0f; //this will be a negative term.
     aeroRateDampingCoeficent = aeroDampingBaselineHoverPitch + aeroDampingVsTrueAirspeedCoefPitch * trueAirspeed;
 
+    //float momentOfInertia = aircraftProperties.momentOfInertiaPitch;
+    float momentOfInertia = getAircraftMomentOfInertiaInPitch();
+
     //get the torque demand.
-    torqueDemand = _regulatorPitch.getTorqueDemand(targetRate,measuredRate,deltaTime,proportionalCoef,integralCoef,derivitiveCoef,integratorMax,aeroRateDampingCoeficent,aircraftProperties.momentOfInertiaPitch);
+    torqueDemand = _regulatorPitch.getTorqueDemand(targetRate,measuredRate,deltaTime,proportionalCoef,integralCoef,derivitiveCoef,integratorMax,aeroRateDampingCoeficent,momentOfInertia);
     return torqueDemand;
 }
 
@@ -1312,29 +1257,6 @@ AP::logger().Write("BARO", "TimeUS,est_q,bVS,bALT",
                 );
         
     }
-        //float lateralAcceleration = _ahrs.get_accel().y; //lateral Acceleration.
-
-        //_ahrs.get_accel(). adsaf
-
-        // Get body frame accel vector
-        //Vector3f initAccVec;
-        //uint8_t counter = 0;
-        //initAccVec = _ins.get_accel();
-        //??????  https://ardupilot.org/plane/docs/roll-pitch-controller-tuning.html#tuning-the-yaw-damper  look here!
-        //might not have enought side area to matter...!
-
-
-        //perhaps this should be pilot input + rate stability?  as we need to be able to remove rate stability in forward flight and apply some turn coordination, if needed.
-       // desiredMomentZ = get_rate_yaw_pid().update_all(command.targetYawRate,_ahrs.get_gyro().z, false) * aircraftProperties.momentOfInertiaYaw;
-   // }
-
-    /*if(state.regulatorMode == CONTROLLER_STATE_REGULATOR_MODE_RATE)
-    {
-        desiredMomentX = get_rate_roll_pid().update_all(command.targetRollRate,_ahrs.get_gyro().x, false) * aircraftProperties.momentOfInertiaRoll;
-        //desiredMomentY = get_rate_pitch_pid().update_all(command.targetPitchRate,_ahrs.get_gyro().y, false) * aircraftProperties.momentOfInertiaPitch;
-        desiredMomentY = pitchRateRegulator(command.targetPitchRate, _ahrs.get_gyro().y, dynamicPressure, sqrtf(dynamicPressure), dt);
-        desiredMomentZ = get_rate_yaw_pid().update_all(command.targetYawRate,_ahrs.get_gyro().z, false) * aircraftProperties.momentOfInertiaYaw;
-    }*/
 
     //lowpass filter the desired moments.
     static float filteredDesiredMomentX = 0.0;
@@ -1387,79 +1309,23 @@ AP::logger().Write("BARO", "TimeUS,est_q,bVS,bALT",
         
     //calculate desired forces
     float desiredAccelerationZ = 0.0f;
-    //float desiredAccelerationX = 0.0f;
-       // if(state.commandMode == 0) //manual tilt angle
-       // {
-            //calculate vector components based on tilt and thrust
-           // desiredAccelerationZ = -1.0 * sinf(command.targetTiltAngle) * command.targetTiltAcceleration; //vertical component in body frame. (+Z = down)
-            desiredAccelerationZ = -1.0 * command.targetTiltAcceleration; //vertical component in body frame. (+Z = down)
-            
-    //        desiredAccelerationX =  0.0;//cosf(command.targetTiltAngle) * command.targetTiltAcceleration; //longitudinal component in body frame. (+X = forward)
-            
-      //  }else{
-      //      //take target accelerations already vectorized and use those.
-      //      desiredAccelerationZ = command.targetAccelerationZ;  //Right now commanded directly by pilot
-      //      desiredAccelerationX = command.targetAccelerationX;  //Right now commanded directly by pilot
-       // }
-
-        float requiredForceZ = desiredAccelerationZ * getAircraftMass();//aircraftProperties.totalMass; //Newtons
-        //float requiredForceX = desiredAccelerationX * getAircraftMass();//aircraftProperties.totalMass; //Newtons
+          desiredAccelerationZ = command.targetAccelerationZ;
+    float requiredForceZ = desiredAccelerationZ * getAircraftMass();//aircraftProperties.totalMass; //Newtons
 
     //calculate effector outputs
 
     //calculate effector mixing
-
-       // float surfaceToMotorMixingRatio = 0.0f; //smaller = motors, larger = surfaces.
-
-       // surfaceToMotorMixingRatio = getRangeRatio(dynamicPressure, EffectorMixingDynamicPressureBottom, EffectorMixingDynamicPressureTop);
-
-       // float pitchMomentForSurfaces = 0.0f;
-       // float rollMomentForSurfaces = 0.0f;
         float pitchMomentForMotors = 0.0f;
         float rollMomentForMotors = 0.0f;
         float yawMomentForMotors = 0.0f;
-       // if(surfaceToMotorMixingRatio < 0.0f) surfaceToMotorMixingRatio = 0.0f;
-       // if(surfaceToMotorMixingRatio > 1.0f) surfaceToMotorMixingRatio = 1.0f;
-
-       // pitchMomentForSurfaces = desiredMomentY * (surfaceToMotorMixingRatio);
-       // rollMomentForSurfaces = desiredMomentX * (surfaceToMotorMixingRatio);
-
 
         pitchMomentForMotors = desiredMomentY;
         rollMomentForMotors = desiredMomentX;
         yawMomentForMotors = desiredMomentZ;
 
-
         desiredMomentX = rollMomentForMotors; //so we don't need to change the code below.
         desiredMomentY = pitchMomentForMotors;
         desiredMomentZ = yawMomentForMotors;
-
-
-
-        //Now calculate motors and tilts!
-        //Calculate forward/aft motor thurst(force) distribution from the total body Z force desired and the desired pitching moment.
-        //float totalForceUp = 0.0f; //backwards
-        //float totalMomentForward = 0.0f; //backwards, but this is how I did the math, so lets start with this, as the arms work out this way if the x axis is used
-        //float forceUpMotors1and2 = 0.0f;
-        //float forceUpMotor3 = 0.0f;
-
-       // totalForceUp = requiredForceZ * -1.0f; //-1.0 is converting from the +Z = down frame //could get rid of this, and fix when we calculate the tilt angle?
-
-
-
-
-        
-        //totalMomentForward = desiredMomentY;  //there is no -1.0 here because the moment arms are defined in such a way that the moment produced is negative!
-
-        //TODO: need a divide by zero check here.  Make sure that D12 and D3 are not equal!
-        //float distanceXFromCGMotors12 = aircraftProperties.motor1LocationX - getCenterOfMassLocationX();// aircraftProperties.centerOfMassLocationX;
-       // float distanceXFromCGMotor3 = aircraftProperties.motor3LocationX - getCenterOfMassLocationX(); //aircraftProperties.centerOfMassLocationX;
-
-      //  forceUpMotors1and2 = (totalMomentForward - distanceXFromCGMotor3 * totalForceUp) / (distanceXFromCGMotors12 - distanceXFromCGMotor3); //this appears to be working...pitch seems to be backwards, but total force up is working, which means required force Z and pitch moment need to be reversed upstream of here.. could also be an transmitter reversing issue.
-       // forceUpMotor3 = (distanceXFromCGMotors12 * totalForceUp - totalMomentForward) / (distanceXFromCGMotors12 - distanceXFromCGMotor3); //this appears to be working...don't know about direction/magnitude...
-
-        //NOW CALCULATE DIFFERENT FORCES FOR THE ROLL CONTROLLER
-        //float deltaForceUpStation12ForRoll = 0.0; //re-aranged so it would say "deltaForce" =)
 
         float liftMotorThrustDemands[8] = {0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f};
 
@@ -1478,7 +1344,6 @@ AP::logger().Write("BARO", "TimeUS,est_q,bVS,bALT",
             ;
 
         }
-
 
         effectors.motor1Thrust = liftMotorThrustDemands[0];
         effectors.motor2Thrust = liftMotorThrustDemands[1];
