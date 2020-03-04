@@ -407,7 +407,7 @@ private:
     AP_Float motor3ThrustToTorqueCoef; //N to NM  //for delta vtol
 
     AP_Float elevonCoefLiftPerDeflection;
-    AP_Float elevonControlMinimumDynamicPressure; //Pa
+    //AP_Float elevonControlMinimumDynamicPressure; //Pa
     AP_Float lowpassFilterCuttofFrequencyPitch; //Hz
     AP_Float lowpassFilterCuttofFrequencyRoll; //Hz
     AP_Float lowpassFilterCuttofFrequencyYaw; //Hz

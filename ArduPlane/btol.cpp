@@ -124,10 +124,10 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
     //AP_SUBGROUPINFO(_pid_rate_roll, "B_ROLL_", 0, BTOL_Controller, AC_PID),
     //AP_SUBGROUPINFO(_pid_rate_pitch, "B_PTCH_", 1, BTOL_Controller, AC_PID),
     //AP_SUBGROUPINFO(_pid_rate_yaw, "B_YAW_", 2, BTOL_Controller, AC_PID),
-
-    AP_GROUPINFO("IzzYawKgMM",      0, BTOL_Controller, aircraftMomentOfInertiaYawInKgMM,       0.02f),
+//Testing why it doesn't work...THIS IS WHY! (The first 0, but 1&2 are OK.  Moving 0 to somewhere else!)
+    //AP_GROUPINFO("IzzYawKgMM",      0, BTOL_Controller, aircraftMomentOfInertiaYawInKgMM,       0.02f),
     AP_GROUPINFO("IyyPtcKgMM",      1, BTOL_Controller, aircraftMomentOfInertiaPitchInKgMM,       0.02f),
-    AP_GROUPINFO("IxxRolKgMM",      2, BTOL_Controller, aircraftMomentOfInertiaRollInKgMM,       0.02f),
+    AP_GROUPINFO("IxxRolKgMM",      2, BTOL_Controller, aircraftMomentOfInertiaRollInKgMM,       0.2f),
 
 	AP_GROUPINFO("RRATECMDG",      3, BTOL_Controller, rollRateCommandGain,       0.5f),
 	AP_GROUPINFO("PRATECMDG",        4, BTOL_Controller, pitchRateCommandGain,        0.5f),
@@ -145,9 +145,11 @@ const AP_Param::GroupInfo BTOL_Controller::var_info[] = {
     AP_GROUPINFO("HOV_AC_THR",        14, BTOL_Controller, verticalAccelerationThresholdToConsiderAircraftInHover,        DEFAULT_VERTICAL_ACCELERATION_THRESHOLD_TO_CONSIDER_AIRCRAFT_IN_HOVER),
     AP_GROUPINFO("MASS_KG",        15, BTOL_Controller, aircraftMassInKg,        DEFAULT_AIRCRAFT_MASS_IN_KG),
     AP_GROUPINFO("CG_METERS",        16, BTOL_Controller, centerOfMassLocationX,        DEFAULT_AIRCRAFT_CENTER_OF_MASS_METERS),
+    //AP_GROUPINFO("IzzYawKgMM",      0, BTOL_Controller, aircraftMomentOfInertiaYawInKgMM,       0.02f),
     AP_GROUPINFO("AzCMDmss",        17, BTOL_Controller, linearAccelerationZCommandGain,        30),
     AP_GROUPINFO("Elvn_CL",        18, BTOL_Controller, elevonCoefLiftPerDeflection,        DEFAULT_ELEVON_COEF_OF_LIFT_PER_DEFLECTION),
-    AP_GROUPINFO("Elvn_min_q",        19, BTOL_Controller, elevonControlMinimumDynamicPressure,        DEFAULT_ELEVON_MINIMUM_DYNAMIC_PRESSURE),
+    //AP_GROUPINFO("Elvn_min_q",        19, BTOL_Controller, elevonControlMinimumDynamicPressure,        DEFAULT_ELEVON_MINIMUM_DYNAMIC_PRESSURE),
+    AP_GROUPINFO("IzzYawKgMM",      19, BTOL_Controller, aircraftMomentOfInertiaYawInKgMM,       0.02f),
     AP_GROUPINFO("LowPassF_P",        20, BTOL_Controller, lowpassFilterCuttofFrequencyPitch,        DEFAULT_LOWPASS_FILTER_CUTOFF_FREQUENCY_PITCH),
     AP_GROUPINFO("LowPassF_R",        21, BTOL_Controller, lowpassFilterCuttofFrequencyRoll,        DEFAULT_LOWPASS_FILTER_CUTOFF_FREQUENCY_ROLL),
     AP_GROUPINFO("LowPassF_Y",        22, BTOL_Controller, lowpassFilterCuttofFrequencyYaw,        DEFAULT_LOWPASS_FILTER_CUTOFF_FREQUENCY_YAW),
@@ -1230,7 +1232,7 @@ EffectorList BTOL_Controller::calculateEffectorOutputs(float dt)
 
         float liftMotorThrustDemands[8] = {0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f,0.0f};
 
-        float zForceToLiftMotorThrustMatrix[8] = {-0.125f,-0.125f,-0.125f,-0.125f,-0.125f,-0.125f,-0.125f,-0.125f};
+        float zForceToLiftMotorThrustMatrix[8] = {-0.125f,-0.125f,-0.125f,-0.125f,-0.125f,-0.125f,-0.125f,-0.125f}; //because motor thrust is defined as positive up.
         float xMomentToLiftMotorThrustMatrix[8] = {0.434848f, 0.434848f, 0.176475f, 0.176475f, -0.176475f, -0.176475f, -0.434848f, -0.434848f};
         float yMomentToLiftMotorThrustMatrix[8] = {-1.77168f, -0.590514f, 0.590514f, 1.77168f, 1.77168f, 0.590514f, -0.590514f, -1.77168f};
         float zMomentToLiftMotorThrustMatrix[8] = {-0.0931148f, 0.156885f, -0.11206f, 0.13794f, -0.13794f, 0.11206f, -0.156885f, 0.0931148f};
@@ -1255,7 +1257,7 @@ EffectorList BTOL_Controller::calculateEffectorOutputs(float dt)
         effectors.motor7Thrust = liftMotorThrustDemands[6];
         effectors.motor8Thrust = liftMotorThrustDemands[7];
         effectors.motor9Thrust = requiredForceX;
-        
+
     return effectors;
 }
 
